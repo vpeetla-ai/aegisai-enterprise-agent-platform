@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: aegisai-api
+    runtime: docker
+    plan: free
+    dockerContext: .
+    dockerfilePath: services/api/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: AEGISAI_LLM_PROVIDER
+        value: local
+      - key: AEGISAI_CONTROL_PLANE_DB_PATH
+        value: /tmp/aegisai-control-plane.sqlite
+      - key: AEGISAI_VECTOR_DB_PATH
+        value: /tmp/aegisai-vector-memory.sqlite
+      - key: AEGISAI_CORS_ORIGINS
+        sync: false
+      - key: LANGSMITH_PROJECT
+        value: aegisai-agent-governance-control-plane

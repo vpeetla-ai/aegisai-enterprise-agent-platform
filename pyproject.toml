@@ -1,0 +1,32 @@
+[project]
+name = "aegisai-agent-governance-control-plane"
+version = "0.1.0"
+description = "Enterprise AI governance control plane for multi-agent orchestration, policy simulation, HITL, evals, telemetry, and audit."
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.30.0",
+  "pydantic>=2.8.0",
+  "langgraph>=0.2.0",
+  "langchain-core>=0.3.0",
+  "httpx>=0.27.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["services/api/src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["services/api/src"]
+testpaths = ["services/api/tests"]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+]
+observability = [
+  "langfuse>=3.0.0",
+  "langsmith>=0.2.0",
+]
+postgres = [
+  "psycopg[binary]>=3.2.0",
+]

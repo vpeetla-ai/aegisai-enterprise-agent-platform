@@ -1,0 +1,13 @@
+.git
+.next
+.venv
+.uv-cache
+__pycache__
+*.pyc
+apps/web/.next
+apps/web/node_modules
+node_modules
+services/api/.venv
+services/api/**/__pycache__
+*.sqlite
+*.db
