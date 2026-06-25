@@ -1,5 +1,7 @@
 """Product-management artifacts that explain portfolio scope and roadmap."""
+from .agent_cloud import AgentCloudService, UndoRequest
 from .agent_registry import AgentRegistryService, RegisteredAgent
+from .dashboard import DashboardService
 from .audit_export import AuditPacketExporter
 from .golden_evals import GoldenEvalService
 from .identity_rbac import IdentityRBACService
@@ -11,9 +13,11 @@ from .red_team_evals import RedTeamEvalService
 from .slack_approvals import SlackApprovalService
 
 __all__ = [
+    "AgentCloudService",
     "AgentOnboardingInput",
     "AgentRegistryService",
     "AuditPacketExporter",
+    "DashboardService",
     "GatewayToolRequest",
     "GoldenEvalService",
     "IdentityRBACService",
@@ -25,4 +29,5 @@ __all__ = [
     "RedTeamEvalService",
     "SlackApprovalService",
     "RegisteredAgent",
+    "UndoRequest",
 ]

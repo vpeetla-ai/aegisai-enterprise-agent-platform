@@ -1,6 +1,7 @@
 import { isFastApiErrorBody } from "@/lib/api/safe";
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+/** Same-origin by default — Next.js/Vercel rewrites proxy to the API backend. */
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 export async function requestJson<T>(
   path: string,

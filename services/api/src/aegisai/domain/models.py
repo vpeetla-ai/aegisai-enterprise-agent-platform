@@ -28,6 +28,7 @@ class Decision(StrEnum):
 
 class ExecutionStatus(StrEnum):
     EXECUTED = "executed"
+    ROLLED_BACK = "rolled_back"
     REQUIRES_APPROVAL = "requires_approval"
     BLOCKED = "blocked"
     FAILED = "failed"

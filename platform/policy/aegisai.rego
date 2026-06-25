@@ -67,7 +67,22 @@ reason_codes contains code if {
     code := "restricted_data"
 }
 
+# Deploy tools always require human approval before execution
+decision := "human_approval" if {
+    input.action_type in {"deploy_frontend", "deploy_backend", "deploy_release"}
+    decision != "block"
+}
+
+decision := "human_approval" if {
+    startswith(input.action_type, "deploy_")
+    decision != "block"
+}
+
+approval_role := "release_manager" if {
+    startswith(input.action_type, "deploy_")
+}
+
 reason_codes contains code if {
-    input.customer_impact
-    code := "customer_impacting"
+    startswith(input.action_type, "deploy_")
+    code := "production_deploy_requires_hitl"
 }

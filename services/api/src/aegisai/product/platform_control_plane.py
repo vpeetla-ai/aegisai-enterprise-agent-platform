@@ -199,6 +199,20 @@ class PlatformControlPlaneService:
             "escalate": "approval_required",
             "block": "block",
         }.get(str(simulation["decision"]), "approval_required")
+        deploy_tools = {
+            "deploy.vercel_release",
+            "deploy.render_release",
+            "github.create_pull_request",
+        }
+        if request.tool_name in deploy_tools or request.action_type.startswith("deploy_"):
+            gateway_decision = "approval_required"
+            simulation = {
+                **simulation,
+                "decision": "human_approval",
+                "explanation": (
+                    "Production deploy tools always require human approval before execution."
+                ),
+            }
         steps = ["authorize_identity", "score_risk", "evaluate_policy"]
         if gateway_decision == "allow":
             steps.extend(["issue_execution_token", "record_audit_event"])

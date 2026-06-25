@@ -31,6 +31,11 @@ class LLMGateway:
             self.model = "gpt-4.1-mini"
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.openai_base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+        self.gemini_api_key = os.getenv("GEMINI_API_KEY")
+        self.gemini_base_url = os.getenv(
+            "GEMINI_BASE_URL",
+            "https://generativelanguage.googleapis.com/v1beta",
+        )
         self.timeout_seconds = float(os.getenv("AEGISAI_LLM_TIMEOUT_SECONDS", "20"))
 
     def complete(self, system_prompt: str, user_prompt: str) -> LLMResponse:
@@ -44,6 +49,8 @@ class LLMGateway:
             )
         if self.provider == "openai":
             return self._openai_response(system_prompt, user_prompt)
+        if self.provider == "gemini":
+            return self._gemini_response(system_prompt, user_prompt)
         return LLMResponse(
             provider=self.provider,
             model=self.model,
@@ -119,6 +126,43 @@ class LLMGateway:
                     if isinstance(text, str):
                         chunks.append(text)
         return "\n".join(chunks) if chunks else "OpenAI response returned without text output."
+
+    def _gemini_response(self, system_prompt: str, user_prompt: str) -> LLMResponse:
+        if not self.gemini_api_key:
+            return LLMResponse(
+                provider="gemini",
+                model=self.model,
+                content="Gemini selected but GEMINI_API_KEY is not configured.",
+                confidence=0.0,
+            )
+        model = self.model if self.model != "deterministic-policy-model" else "gemini-2.0-flash"
+        payload = {
+            "contents": [{"parts": [{"text": f"{system_prompt}\n\n{user_prompt}"}]}],
+            "generationConfig": {"maxOutputTokens": 1024},
+        }
+        try:
+            with httpx.Client(timeout=self.timeout_seconds) as client:
+                response = client.post(
+                    f"{self.gemini_base_url}/models/{model}:generateContent",
+                    params={"key": self.gemini_api_key},
+                    json=payload,
+                )
+                response.raise_for_status()
+                data = response.json()
+                text = (
+                    data.get("candidates", [{}])[0]
+                    .get("content", {})
+                    .get("parts", [{}])[0]
+                    .get("text", "")
+                )
+                return LLMResponse(provider="gemini", model=model, content=text or "{}", confidence=0.88)
+        except (httpx.HTTPError, IndexError, KeyError) as exc:
+            return LLMResponse(
+                provider="gemini",
+                model=model,
+                content=f"Gemini call failed: {exc}",
+                confidence=0.0,
+            )
 
     @staticmethod
     def _local_response(system_prompt: str, user_prompt: str) -> str:

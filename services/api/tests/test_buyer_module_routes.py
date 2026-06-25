@@ -63,6 +63,8 @@ def test_top_one_percent_product_routes() -> None:
     assert client.get("/api/demo/flagship-flow").json()["steps"]
     assert client.get("/api/identity/permission-matrix").json()["rows"]
     assert client.get("/api/incidents/timeline").json()["events"]
+    assert client.get("/api/agent-cloud/posture").json()["pillars"]
+    assert client.get("/api/agent-cloud/monitor").json()["activity"]
 
     replay = client.post("/api/policy/replay", json=POLICY_BODY)
     assert replay.status_code == 200

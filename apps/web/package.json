@@ -9,6 +9,10 @@
   "scripts": {
     "predev": "node -e \"const major=Number(process.versions.node.split('.')[0]); if (major < 20) { console.error('AegisAI web requires Node.js >=20. Run nvm use inside apps/web or install Node 20+. Current: '+process.version); process.exit(1); }\"",
     "dev": "next dev",
+    "dev:clean": "rm -rf .next && next dev",
+    "dev:all": "cd ../.. && ./scripts/dev.sh",
+    "api": "cd ../.. && ./scripts/start-api.sh",
+    "web:clean": "cd ../.. && AEGISAI_FORCE_RESTART=1 ./scripts/start-web.sh",
     "prebuild": "node -e \"const major=Number(process.versions.node.split('.')[0]); if (major < 20) { console.error('AegisAI web requires Node.js >=20. Run nvm use inside apps/web or install Node 20+. Current: '+process.version); process.exit(1); }\"",
     "build": "next build",
     "start": "next start",

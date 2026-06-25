@@ -28,6 +28,11 @@ body {
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+.aegis-body {
+  min-width: 320px;
+  overflow-x: auto;
+}
+
 button {
   font: inherit;
 }
@@ -4336,6 +4341,54 @@ h2 {
   border: 1px dashed var(--line);
 }
 
+.api-health-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 0.88rem;
+}
+
+.api-health-banner-checking {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.api-health-banner-fail {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.api-health-banner-fail p {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: #b91c1c;
+}
+
+.api-health-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2563eb;
+  margin-right: 8px;
+  animation: api-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes api-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 .api-health-blocker-fail {
   border-color: #f87171;
   background: #fef2f2;
@@ -4465,3 +4518,564 @@ h2 {
     animation: none;
   }
 }
+
+.agent-cloud-panel {
+  margin-top: 16px;
+}
+
+.agent-cloud-subtitle {
+  margin: 8px 0 0;
+  color: #475569;
+  font-size: 0.92rem;
+}
+
+.agent-cloud-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.agent-cloud-metric {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fff;
+}
+
+.agent-cloud-metric span {
+  display: block;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.agent-cloud-metric strong {
+  display: block;
+  font-size: 1.35rem;
+  margin: 4px 0;
+}
+
+.agent-cloud-metric p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #475569;
+}
+
+.agent-cloud-pillars {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.agent-cloud-pillars.compact {
+  margin-bottom: 0;
+}
+
+.agent-cloud-pillar {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px;
+  background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+}
+
+.agent-cloud-pillar header {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.agent-cloud-pillar h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.agent-cloud-reference {
+  margin: 2px 0 0;
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.pillar-monitor {
+  border-color: #bfdbfe;
+}
+
+.pillar-govern {
+  border-color: #bbf7d0;
+}
+
+.pillar-remediate {
+  border-color: #fde68a;
+}
+
+.agent-cloud-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.agent-cloud-column {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fff;
+}
+
+.agent-cloud-column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.agent-cloud-column-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.agent-cloud-activity,
+.agent-cloud-controls,
+.agent-cloud-undo-list,
+.agent-cloud-agent-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.agent-cloud-activity li,
+.agent-cloud-controls li,
+.agent-cloud-undo-list li {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f8fafc;
+}
+
+.agent-cloud-time {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.agent-cloud-empty {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.control-status {
+  display: inline-block;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.control-status.active,
+.control-status.ready {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.control-status.engaged {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.agent-cloud-coverage,
+.agent-cloud-recovery {
+  margin-top: 10px;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.agent-cloud-undo-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.agent-cloud-undo-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.agent-cloud-undo-result {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  font-size: 0.85rem;
+}
+
+.agent-cloud-undo-result.status-rolled_back {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.agent-cloud-agent-list h4 {
+  margin: 12px 0 8px;
+  font-size: 0.85rem;
+}
+
+.agent-cloud-agent-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 1100px) {
+  .agent-cloud-pillars,
+  .agent-cloud-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.gov-dashboard {
+  padding: 8px 0 24px;
+}
+
+.gov-dashboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.gov-dashboard-header h1 {
+  margin: 4px 0 0;
+  font-size: 1.75rem;
+}
+
+.gov-dashboard-posture {
+  margin: 8px 0 0;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.gov-dashboard-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.gov-dashboard-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.gov-dashboard-tile {
+  text-align: left;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.gov-dashboard-tile:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+}
+
+.gov-dashboard-tile.status-attention {
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
+.gov-tile-label {
+  display: block;
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-top: 8px;
+}
+
+.gov-tile-value {
+  display: block;
+  font-size: 1.6rem;
+  margin-top: 4px;
+}
+
+.gov-tile-delta {
+  display: block;
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 6px;
+}
+
+.gov-dashboard-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.gov-module-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.orchestrator-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.orchestrator-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+  background: #fff;
+}
+
+.orchestrator-card header {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.orch-schedule {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: #64748b;
+  margin: 4px 0 0;
+}
+
+.orch-agents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 10px 0;
+  padding: 0;
+}
+
+.orch-agents li {
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #f1f5f9;
+}
+
+.orchestrator-runs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.orch-run-history {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.orch-run-history ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.orch-run-history li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 1100px) {
+  .gov-dashboard-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .orchestrator-cards,
+  .orchestrator-runs-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.shell-clean {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 20px 24px 48px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.topbar-clean {
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.topbar-clean .top-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.topbar-clean h1 {
+  font-size: 1.35rem;
+  margin: 4px 0 0;
+  word-break: normal;
+}
+
+.topbar-clean .eyebrow {
+  margin: 0 0 4px;
+}
+
+.gov-module-shell {
+  padding: 4px 0 24px;
+}
+
+.gov-module-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: none;
+  color: #2563eb;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 12px;
+}
+
+.gov-module-header h2 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.gov-module-header p {
+  margin: 6px 0 16px;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.gov-module-panel {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  background: #fff;
+}
+
+.gov-module-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.gov-module-stats article {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.gov-module-stats span {
+  display: block;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.gov-module-stats strong {
+  display: block;
+  font-size: 1.4rem;
+  margin-top: 4px;
+}
+
+.gov-agent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.gov-agent-list li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+
+.gov-agent-list strong {
+  display: block;
+}
+
+.gov-agent-list span {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.gov-demo-outcomes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.gov-module-lead {
+  margin: 0 0 12px;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.gov-incident-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.gov-incident-list li {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.gov-incident-list span {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.gov-incident-list p {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.gov-procedure {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 0.85rem;
+  color: #475569;
+}
+

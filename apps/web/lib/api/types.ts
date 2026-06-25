@@ -592,6 +592,162 @@ export type IntegrationsPayload = {
   enterprise_connectors: string[];
 };
 
+export type DashboardSummaryPayload = {
+  product_module: string;
+  headline: string;
+  tenant_id: string;
+  posture_score: number;
+  tiles: Array<{
+    id: string;
+    label: string;
+    value: string | number;
+    delta: string;
+    status: string;
+    module: string;
+  }>;
+  quick_actions: Array<{
+    id: string;
+    label: string;
+    module: string;
+  }>;
+};
+
+export type OrchestratorPosturePayload = {
+  orchestrator_id: string;
+  name: string;
+  agents: string[];
+  schedule: string;
+  description?: string;
+  output?: string;
+  governance?: string;
+  last_run?: Record<string, unknown> | null;
+};
+
+export type OrchestratorRegistryPayload = {
+  orchestrators: OrchestratorPosturePayload[];
+};
+
+export type OrchestratorRunPayload = {
+  orchestrator_id: string;
+  name?: string;
+  schedule?: string;
+  description?: string;
+  runs: Array<{
+    run_id: string;
+    status: string;
+    completed_at?: string;
+    topics?: unknown[];
+    briefing_markdown?: string;
+  }>;
+};
+
+export type AgentCloudPillar = {
+  id: string;
+  title: string;
+  reference: string;
+  outcome: string;
+};
+
+export type AgentCloudPosturePayload = {
+  product_module: string;
+  headline: string;
+  positioning: string;
+  pillars: AgentCloudPillar[];
+  board_metrics: Array<{
+    label: string;
+    value: string | number;
+    meaning: string;
+  }>;
+  monitor_summary: {
+    activity_events: number;
+    agents_in_motion: number;
+  };
+  govern_summary: {
+    zero_trust_controls: number;
+    active_freezes: number;
+  };
+  remediate_summary: {
+    undoable_count: number;
+    mean_recovery_seconds: number;
+  };
+};
+
+export type AgentCloudMonitorPayload = {
+  product_module: string;
+  headline: string;
+  tenant_id: string;
+  agents_in_motion: number;
+  gateway_tool_calls: number;
+  activity: Array<{
+    time: string;
+    event_type: string;
+    agent_id: string | null;
+    case_id: string;
+    actor_id: string;
+    detail: string;
+  }>;
+  agents: Array<{
+    agent_id: string;
+    name: string;
+    owner: string;
+    status: string;
+    risk_tier: string;
+    last_run_at: string;
+    allowed_tools: string[];
+    open_incidents: number;
+  }>;
+  integration_hub: string[];
+};
+
+export type AgentCloudGovernPayload = {
+  product_module: string;
+  headline: string;
+  gateway_coverage_pct: number;
+  pilot_target_pct: number;
+  active_freezes: number;
+  freeze_rules: unknown[];
+  high_risk_agents_without_freeze: string[];
+  zero_trust_controls: Array<{
+    control: string;
+    status: string;
+    detail: string;
+  }>;
+  permission_matrix_rows: number;
+  recommended_actions: string[];
+};
+
+export type AgentCloudUndoablePayload = {
+  product_module: string;
+  headline: string;
+  tenant_id: string;
+  undoable_count: number;
+  mean_recovery_seconds: number;
+  actions: Array<{
+    execution_id: string;
+    case_id: string;
+    proposal_id: string;
+    action_type: string;
+    target_system: string;
+    connector: string;
+    status: string;
+    rollback_reference: string | null;
+    external_reference: string | null;
+    message: string;
+  }>;
+  operating_procedure: string[];
+};
+
+export type AgentCloudUndoPayload = {
+  status: string;
+  message: string;
+  product_module?: string;
+  rollback_id?: string;
+  execution_id?: string;
+  rollback_reference?: string;
+  recovery_time_seconds?: number;
+  audit_chain_valid?: boolean;
+};
+
 export type UseCaseRun = {
   id: string;
   label: string;

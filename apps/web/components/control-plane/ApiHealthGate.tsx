@@ -11,28 +11,28 @@ type ApiHealthGateProps = {
 };
 
 export function ApiHealthGate({ status, detail, onRecheck, children }: ApiHealthGateProps) {
-  if (status === "checking") {
-    return (
-      <div className="api-health-blocker" role="status">
-        <div className="skeleton-block skeleton-hero" />
-        <div className="skeleton-block skeleton-panel" />
-        <p>Connecting to governance API…</p>
-      </div>
-    );
-  }
+  return (
+    <>
+      {status === "checking" ? (
+        <div className="api-health-banner api-health-banner-checking" role="status">
+          <span className="api-health-dot" aria-hidden />
+          Connecting to governance API…
+        </div>
+      ) : null}
 
-  if (status !== "ok") {
-    return (
-      <div className="api-health-blocker api-health-blocker-fail" role="alert">
-        <h2>Connect your governance API to continue</h2>
-        <p>{detail}</p>
-        <pre className="code-sample">AEGISAI_FORCE_RESTART=1 ./scripts/start-api.sh</pre>
-        <button type="button" className="btn-primary" onClick={() => void onRecheck()}>
-          Recheck connection
-        </button>
-      </div>
-    );
-  }
+      {status === "stale" || status === "down" ? (
+        <div className="api-health-banner api-health-banner-fail" role="alert">
+          <div>
+            <strong>API offline</strong>
+            <p>{detail}</p>
+          </div>
+          <button type="button" className="btn-secondary" onClick={() => void onRecheck()}>
+            Recheck API
+          </button>
+        </div>
+      ) : null}
 
-  return <>{children}</>;
+      {children}
+    </>
+  );
 }

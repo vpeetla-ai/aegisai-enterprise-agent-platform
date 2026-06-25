@@ -6,5 +6,15 @@
     "env": {
       "NODE_VERSION": "20"
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/health",
+      "destination": "https://aegisai-api.onrender.com/health"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "https://aegisai-api.onrender.com/api/:path*"
+    }
+  ]
 }

@@ -26,6 +26,30 @@ class ObservabilityService:
         event = self._build_trace_event(result, rag_result)
         return [exporter.export(event) for exporter in self.exporters]
 
+    def export_orchestrator_run(
+        self,
+        *,
+        orchestrator_id: str,
+        run_id: str,
+        tenant_id: str,
+        agent_traces: tuple[str, ...],
+        metadata: dict[str, object] | None = None,
+    ) -> list[ExporterStatus]:
+        event = TraceEvent(
+            trace_id=f"trace-{run_id}",
+            tenant_id=tenant_id,
+            request_id=run_id,
+            workflow_type=orchestrator_id,
+            decision="orchestrator_completed",
+            risk_score=0,
+            risk_level="low",
+            agents_run=agent_traces,
+            retrieved_sources=(),
+            evaluation_scores={},
+            metadata={"orchestrator_id": orchestrator_id, **(metadata or {})},
+        )
+        return [exporter.export(event) for exporter in self.exporters]
+
     @staticmethod
     def _build_trace_event(result: OrchestrationResult, rag_result: RAGResult) -> TraceEvent:
         decision = result.context.governance_decisions[0] if result.context.governance_decisions else None

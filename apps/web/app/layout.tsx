@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ToastProvider } from "@/context/ToastContext";
 import "./globals.css";
+import "./aegis-ui.css";
 
 export const metadata: Metadata = {
   title: "AegisAI Agent Governance Control Plane",
@@ -15,7 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
+      <body className="aegis-body">
         <ToastProvider>{children}</ToastProvider>
       </body>
     </html>

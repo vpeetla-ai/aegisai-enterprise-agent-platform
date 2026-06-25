@@ -205,4 +205,10 @@ def default_connector_registry() -> tuple[EnterpriseConnector, ...]:
             target_systems=("custom", "webhook"),
             tool_names=(),
         ),
-    )
+    ) + production_deploy_connectors()
+
+
+def production_deploy_connectors() -> tuple[EnterpriseConnector, ...]:
+    from .deploy import GitHubConnector, RenderDeployConnector, VercelDeployConnector
+
+    return (GitHubConnector(), VercelDeployConnector(), RenderDeployConnector())

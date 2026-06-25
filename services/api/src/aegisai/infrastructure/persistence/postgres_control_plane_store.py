@@ -420,6 +420,52 @@ class PostgresControlPlaneStore:
         row = self._one(f"SELECT COUNT(*) AS total FROM {table}", ())
         return int(row["total"]) if row else 0
 
+    def list_recent_audit_events(self, tenant_id: str, *, limit: int = 20) -> list[dict[str, object]]:
+        return self._many(
+            """
+            SELECT event_id, tenant_id, case_id, event_type, subject_id, actor_id,
+                   payload_json, occurred_at AS created_at
+            FROM audit_events
+            WHERE tenant_id = %s
+            ORDER BY occurred_at DESC
+            LIMIT %s
+            """,
+            (tenant_id, limit),
+        )
+
+    def list_undoable_executions(self, tenant_id: str) -> list[dict[str, object]]:
+        return self._many(
+            """
+            SELECT *
+            FROM action_executions
+            WHERE tenant_id = %s
+              AND status = 'executed'
+              AND rollback_reference IS NOT NULL
+            ORDER BY execution_id DESC
+            """,
+            (tenant_id,),
+        )
+
+    def get_execution_by_id(self, execution_id: str) -> dict[str, object] | None:
+        return self._one(
+            "SELECT * FROM action_executions WHERE execution_id = %s",
+            (execution_id,),
+        )
+
+    def mark_execution_rolled_back(self, execution_id: str, rollback_id: str) -> None:
+        with self._connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE action_executions
+                    SET status = 'rolled_back',
+                        message = COALESCE(message, '') || ' [rolled_back:' || %s || ']'
+                    WHERE execution_id = %s
+                    """,
+                    (rollback_id, execution_id),
+                )
+            connection.commit()
+
     def count_audit_events(
         self,
         tenant_id: str,

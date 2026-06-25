@@ -1,5 +1,7 @@
 # Business Rules
 
+> **System architecture (canonical):** [`ARCHITECTURE.md`](ARCHITECTURE.md)
+
 ## Rule Strategy
 
 Business rules are split into two layers:

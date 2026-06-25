@@ -1,4 +1,4 @@
-.PHONY: verify verify-web verify-api
+.PHONY: verify verify-web verify-api dev api web
 
 verify:
 	./scripts/verify.sh
@@ -8,3 +8,12 @@ verify-web:
 
 verify-api:
 	python3 -m pytest -q
+
+dev:
+	./scripts/dev.sh
+
+api:
+	./scripts/start-api.sh
+
+web:
+	./scripts/start-web.sh

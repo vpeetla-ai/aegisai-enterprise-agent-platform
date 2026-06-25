@@ -2,18 +2,66 @@ services:
   - type: web
     name: aegisai-api
     runtime: docker
-    plan: free
+    plan: starter
     dockerContext: .
     dockerfilePath: services/api/Dockerfile
     healthCheckPath: /health
     envVars:
       - key: AEGISAI_LLM_PROVIDER
-        value: local
-      - key: AEGISAI_CONTROL_PLANE_DB_PATH
-        value: /tmp/aegisai-control-plane.sqlite
-      - key: AEGISAI_VECTOR_DB_PATH
-        value: /tmp/aegisai-vector-memory.sqlite
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: AEGISAI_DB_BACKEND
+        value: postgres
+      - key: DATABASE_URL
+        sync: false
       - key: AEGISAI_CORS_ORIGINS
         sync: false
-      - key: LANGSMITH_PROJECT
-        value: aegisai-agent-governance-control-plane
+      - key: SLACK_CONTENT_WEBHOOK_URL
+        sync: false
+      - key: SLACK_STOCK_WEBHOOK_URL
+        sync: false
+      - key: SLACK_APPROVAL_WEBHOOK_URL
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_REPO_OWNER
+        sync: false
+      - key: GITHUB_REPO_NAME
+        sync: false
+      - key: VERCEL_TOKEN
+        sync: false
+      - key: VERCEL_PROJECT_ID
+        sync: false
+      - key: RENDER_API_KEY
+        sync: false
+      - key: RENDER_SERVICE_ID
+        sync: false
+      - key: LANGFUSE_PUBLIC_KEY
+        sync: false
+      - key: LANGFUSE_SECRET_KEY
+        sync: false
+      - key: LANGSMITH_API_KEY
+        sync: false
+
+  - type: cron
+    name: aegisai-content-pipeline
+    schedule: "0 7 * * 1,4"
+    runtime: docker
+    dockerContext: .
+    dockerfilePath: services/api/Dockerfile
+    dockerCommand: python3 -c "import httpx; httpx.post('https://aegisai-api.onrender.com/api/orchestrators/ai-content/run', timeout=120)"
+
+  - type: cron
+    name: aegisai-stock-research
+    schedule: "0 11 * * 1-5"
+    runtime: docker
+    dockerContext: .
+    dockerfilePath: services/api/Dockerfile
+    dockerCommand: python3 -c "import httpx; httpx.post('https://aegisai-api.onrender.com/api/orchestrators/stock-research/run', timeout=120)"

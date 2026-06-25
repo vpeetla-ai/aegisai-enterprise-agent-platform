@@ -17,7 +17,13 @@ from aegisai.application.execution.tokens import ExecutionTokenService
 from aegisai.application.gateway import McpGovernanceProxy, McpToolCallRequest
 from aegisai.application.guardrails.opa_policy import OpaPolicyEngine
 from aegisai.application.knowledge import SQLiteVectorMemoryStore
-from aegisai.application.orchestration import BusinessRequest, EnterpriseAgentGraph
+from aegisai.application.orchestration import (
+    AIContentPipelineOrchestrator,
+    BusinessRequest,
+    EnterpriseAgentGraph,
+    StockResearchOrchestrator,
+    WebsiteBuildOrchestrator,
+)
 from aegisai.application.tools import enterprise_tool_registry
 from aegisai.domain import DataClassification, ExecutionCommand, ExecutionResult
 from aegisai.infrastructure.persistence import build_control_plane_store
@@ -28,9 +34,11 @@ from aegisai.product.audit_signing import AuditPacketSigner
 from aegisai.observability import build_default_observability_service
 from aegisai.observability.models import ExporterStatus
 from aegisai.product import (
+    AgentCloudService,
     AgentOnboardingInput,
     AgentRegistryService,
     AuditPacketExporter,
+    DashboardService,
     FinOpsService,
     GatewayToolRequest,
     GoldenEvalService,
@@ -41,6 +49,7 @@ from aegisai.product import (
     PolicySimulatorService,
     RedTeamEvalService,
     SlackApprovalService,
+    UndoRequest,
 )
 
 
@@ -97,6 +106,13 @@ class KillSwitchRequest(BaseModel):
     scope_value: str
     reason: str = Field(default="Emergency governance control from product UI.")
     created_by: str = Field(default="security-admin")
+
+
+class AgentUndoRequest(BaseModel):
+    tenant_id: str = Field(default="bank-demo")
+    execution_id: str
+    reason: str = Field(default="Undo unwanted agent action from Agent Cloud console.")
+    actor_id: str = Field(default="security-admin")
 
 
 class AgentOnboardingRequest(BaseModel):
@@ -244,6 +260,54 @@ platform_control_plane_service = PlatformControlPlaneService(
 )
 mcp_governance_proxy = McpGovernanceProxy(platform_control_plane_service)
 gateway_metrics_service = GatewayMetricsService(control_plane_store)
+agent_cloud_service = AgentCloudService(
+    store=control_plane_store,
+    agent_registry=agent_registry_service,
+    kill_switch_service=kill_switch_service,
+    identity_service=identity_service,
+    gateway_metrics=gateway_metrics_service,
+)
+dashboard_service = DashboardService(
+    store=control_plane_store,
+    agent_registry=agent_registry_service,
+    gateway_metrics=gateway_metrics_service,
+    finops=finops_service,
+    kill_switch=kill_switch_service,
+)
+ai_content_orchestrator = AIContentPipelineOrchestrator()
+stock_research_orchestrator = StockResearchOrchestrator()
+
+
+def _website_gateway_decision(**kwargs: object) -> dict[str, object]:
+    classification = DataClassification.INTERNAL
+    raw = kwargs.get("data_classification", "internal")
+    if isinstance(raw, str):
+        try:
+            classification = DataClassification(raw)
+        except ValueError:
+            classification = DataClassification.INTERNAL
+    request = GatewayToolRequest(
+        tenant_id=str(kwargs.get("tenant_id", "bank-demo")),
+        agent_id=str(kwargs["agent_id"]),
+        principal_id=str(kwargs.get("principal_id", "website-build-pipeline")),
+        tool_name=str(kwargs["tool_name"]),
+        action_type=str(kwargs["action_type"]),
+        target_system=str(kwargs["target_system"]),
+        amount_usd=float(kwargs.get("amount_usd", 0)),
+        data_classification=classification,
+        reversible=bool(kwargs.get("reversible", True)),
+        customer_impact=bool(kwargs.get("customer_impact", False)),
+        grounding_score=float(kwargs.get("grounding_score", 0.9)),
+        safety_score=float(kwargs.get("safety_score", 0.95)),
+        policy_compliance_score=float(kwargs.get("policy_compliance_score", 0.92)),
+    )
+    return platform_control_plane_service.gateway_decision(request)
+
+
+website_build_orchestrator = WebsiteBuildOrchestrator(
+    gateway_fn=_website_gateway_decision,
+    observability=observability_service,
+)
 cors_origins = [
     origin.strip()
     for origin in os.getenv(
@@ -1113,6 +1177,88 @@ def kill_switches() -> dict[str, object]:
 @app.get("/api/incidents/timeline")
 def incident_timeline() -> dict[str, object]:
     return kill_switch_service.incident_timeline()
+
+
+@app.get("/api/dashboard/summary")
+def dashboard_summary(tenant_id: str = "bank-demo") -> dict[str, object]:
+    return dashboard_service.summary(tenant_id)
+
+
+@app.get("/api/orchestrators")
+def orchestrators_registry() -> dict[str, object]:
+    return {
+        "orchestrators": [
+            ai_content_orchestrator.posture(),
+            stock_research_orchestrator.posture(),
+            website_build_orchestrator.posture(),
+        ]
+    }
+
+
+@app.post("/api/orchestrators/ai-content/run")
+def run_ai_content_pipeline(tenant_id: str = "bank-demo") -> dict[str, object]:
+    return ai_content_orchestrator.run(tenant_id)
+
+
+@app.get("/api/orchestrators/ai-content/runs")
+def list_ai_content_runs(limit: int = 10) -> dict[str, object]:
+    return ai_content_orchestrator.list_runs(limit)
+
+
+@app.post("/api/orchestrators/stock-research/run")
+def run_stock_research(tenant_id: str = "bank-demo") -> dict[str, object]:
+    return stock_research_orchestrator.run(tenant_id)
+
+
+@app.get("/api/orchestrators/stock-research/runs")
+def list_stock_research_runs(limit: int = 10) -> dict[str, object]:
+    return stock_research_orchestrator.list_runs(limit)
+
+
+@app.post("/api/orchestrators/website-build/run")
+def run_website_build(
+    tenant_id: str = "bank-demo",
+    requirement: str | None = None,
+) -> dict[str, object]:
+    return website_build_orchestrator.run(tenant_id, requirement=requirement)
+
+
+@app.get("/api/orchestrators/website-build/runs")
+def list_website_build_runs(limit: int = 10) -> dict[str, object]:
+    return website_build_orchestrator.list_runs(limit)
+
+
+@app.get("/api/agent-cloud/posture")
+def agent_cloud_posture(tenant_id: str = "bank-demo") -> dict[str, object]:
+    return agent_cloud_service.posture(tenant_id)
+
+
+@app.get("/api/agent-cloud/monitor")
+def agent_cloud_monitor(tenant_id: str = "bank-demo", limit: int = 20) -> dict[str, object]:
+    return agent_cloud_service.monitor_feed(tenant_id, limit=limit)
+
+
+@app.get("/api/agent-cloud/govern")
+def agent_cloud_govern() -> dict[str, object]:
+    return agent_cloud_service.govern_posture()
+
+
+@app.get("/api/agent-cloud/undoable")
+def agent_cloud_undoable(tenant_id: str = "bank-demo") -> dict[str, object]:
+    return agent_cloud_service.undoable_actions(tenant_id)
+
+
+@app.post("/api/agent-cloud/undo")
+def agent_cloud_undo(payload: AgentUndoRequest, auth: ReviewerAuthRequired) -> dict[str, object]:
+    actor_id = auth.principal_id if payload.actor_id == "security-admin" else payload.actor_id
+    return agent_cloud_service.undo_execution(
+        UndoRequest(
+            tenant_id=payload.tenant_id,
+            execution_id=payload.execution_id,
+            actor_id=actor_id,
+            reason=payload.reason,
+        )
+    )
 
 
 @app.post("/api/kill-switches")

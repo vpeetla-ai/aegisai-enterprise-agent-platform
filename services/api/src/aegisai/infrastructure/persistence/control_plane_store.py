@@ -433,6 +433,50 @@ class SQLiteControlPlaneStore:
         row = self.connection.execute(f"SELECT COUNT(*) AS total FROM {table}").fetchone()
         return int(row["total"])
 
+    def list_recent_audit_events(self, tenant_id: str, *, limit: int = 20) -> list[dict[str, object]]:
+        return self._many(
+            """
+            SELECT event_id, tenant_id, case_id, event_type, subject_id, actor_id,
+                   payload_json, occurred_at AS created_at
+            FROM audit_events
+            WHERE tenant_id = ?
+            ORDER BY rowid DESC
+            LIMIT ?
+            """,
+            (tenant_id, limit),
+        )
+
+    def list_undoable_executions(self, tenant_id: str) -> list[dict[str, object]]:
+        return self._many(
+            """
+            SELECT *
+            FROM action_executions
+            WHERE tenant_id = ?
+              AND status = 'executed'
+              AND rollback_reference IS NOT NULL
+            ORDER BY rowid DESC
+            """,
+            (tenant_id,),
+        )
+
+    def get_execution_by_id(self, execution_id: str) -> dict[str, object] | None:
+        return self._one(
+            "SELECT * FROM action_executions WHERE execution_id = ?",
+            (execution_id,),
+        )
+
+    def mark_execution_rolled_back(self, execution_id: str, rollback_id: str) -> None:
+        with self.connection:
+            self.connection.execute(
+                """
+                UPDATE action_executions
+                SET status = 'rolled_back',
+                    message = COALESCE(message, '') || ' [rolled_back:' || ? || ']'
+                WHERE execution_id = ?
+                """,
+                (rollback_id, execution_id),
+            )
+
     def count_audit_events(
         self,
         tenant_id: str,

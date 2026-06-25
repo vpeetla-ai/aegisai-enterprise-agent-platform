@@ -32,11 +32,11 @@ export function useApiHealth() {
         return false;
       }
       setStatus("ok");
-      setDetail(`Connected · ${API_BASE_URL}`);
+      setDetail("Connected · API proxied via Next.js");
       return true;
     } catch {
       setStatus("down");
-      setDetail(`Cannot reach ${API_BASE_URL}. Run ./scripts/start-api.sh`);
+      setDetail("Cannot reach API. Run ./scripts/start-api.sh then ./scripts/start-web.sh");
       return false;
     }
   }, []);
