@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterable, Iterator
@@ -31,14 +32,26 @@ class PostgresControlPlaneStore:
         with self._psycopg.connect(self.database_url) as connection:
             yield connection
 
-    def _ensure_schema(self) -> None:
-        migration = (
+    def _migration_sql_path(self) -> Path:
+        override = os.getenv("AEGISAI_POSTGRES_MIGRATION_PATH", "").strip()
+        if override:
+            return Path(override)
+        candidates = [
+            Path("/app/migrations/postgres-migration.sql"),
             Path(__file__).resolve().parents[6]
             / "platform"
             / "database"
-            / "postgres-migration.sql"
+            / "postgres-migration.sql",
+        ]
+        for path in candidates:
+            if path.is_file():
+                return path
+        raise FileNotFoundError(
+            "postgres-migration.sql not found; set AEGISAI_POSTGRES_MIGRATION_PATH"
         )
-        sql = migration.read_text(encoding="utf-8")
+
+    def _ensure_schema(self) -> None:
+        sql = self._migration_sql_path().read_text(encoding="utf-8")
         with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(sql)

@@ -11,6 +11,7 @@ COPY services/api/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY services/api/src /app/src
+COPY platform/database/postgres-migration.sql /app/migrations/postgres-migration.sql
 
 EXPOSE 8000
 

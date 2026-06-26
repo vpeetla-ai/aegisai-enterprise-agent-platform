@@ -9,14 +9,22 @@ from .control_plane_store import SQLiteControlPlaneStore
 ControlPlaneStore = Union[SQLiteControlPlaneStore, "PostgresControlPlaneStore"]
 
 
+def _postgres_database_url() -> str:
+    """Render/Heroku use DATABASE_URL; local docs also allow AEGISAI_DATABASE_URL."""
+    return (
+        os.getenv("DATABASE_URL", "").strip()
+        or os.getenv("AEGISAI_DATABASE_URL", "").strip()
+    )
+
+
 def build_control_plane_store() -> ControlPlaneStore:
     """Select persistence backend: sqlite (dev/demo) or postgres (production)."""
     backend = os.getenv("AEGISAI_DB_BACKEND", "sqlite").lower()
     if backend == "postgres":
-        database_url = os.getenv("AEGISAI_DATABASE_URL", "").strip()
+        database_url = _postgres_database_url()
         if not database_url:
             raise ValueError(
-                "AEGISAI_DATABASE_URL is required when AEGISAI_DB_BACKEND=postgres"
+                "DATABASE_URL (or AEGISAI_DATABASE_URL) is required when AEGISAI_DB_BACKEND=postgres"
             )
         from .postgres_control_plane_store import PostgresControlPlaneStore
 
