@@ -156,7 +156,9 @@ You do **not** need separate repos today to deploy. Separate repos help when dif
 
 4. Set Tier A env vars (Part 5) — minimum: `DATABASE_URL`, `AEGISAI_DB_BACKEND=postgres`, `GEMINI_API_KEY`, `AEGISAI_LLM_PROVIDER=gemini`, `AEGISAI_EXECUTION_TOKEN_SECRET`, `AEGISAI_AUDIT_SIGNING_KEY`.
 
-> **Supabase `DATABASE_URL` tip:** Use **Connect → Transaction pooler** (port `6543`). If your database password contains `#`, `@`, or `%`, the app auto-encodes it — or encode manually (`#` → `%23`).
+> **Supabase `DATABASE_URL` tip:** Use **Connect → Session pooler** (port `5432`) for Render — it is a long-running web service, not serverless. **Do not type the hostname by hand.** Copy the full URI from Supabase; new projects may use `aws-1-…` or `aws-2-…`, not `aws-0-…`. If passwords contain `#`, `@`, or `%`, the app auto-encodes them.
+
+**If you see `tenant/user postgres.<project-ref> not found`:** the pooler **hostname is wrong** (wrong cluster or region), not your password. Open Supabase → **Connect** → copy **Session pooler** or **Transaction pooler** host exactly (e.g. `aws-1-us-west-2.pooler.supabase.com`, not guessed `aws-0-uswest-2`).
 5. Deploy. Note your URL, e.g. `https://aegisai-api.onrender.com`.
 
 **Free tier limits:** spins down after 15 min idle (~30–60s cold start); 750 instance hours/month.
