@@ -1,0 +1,59 @@
+# Free-tier scheduler — replaces Render Cron jobs (paid).
+# Requires repo secret: AEGISAI_API_BASE_URL (e.g. https://aegisai-api.onrender.com)
+#
+# Schedules match render.yaml:
+#   AI content:     Mon & Thu 07:00 UTC
+#   Stock research: weekdays 11:00 UTC (~6 AM EST)
+
+name: Orchestrator cron
+
+on:
+  schedule:
+    - cron: "0 7 * * 1,4"
+    - cron: "0 11 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      pipeline:
+        description: Pipeline to run
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - ai-content
+          - stock-research
+
+jobs:
+  ai-content:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.schedule == '0 7 * * 1,4' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.pipeline == 'all' || github.event.inputs.pipeline == 'ai-content'))
+    steps:
+      - name: Run AI content pipeline
+        env:
+          API_BASE_URL: ${{ secrets.AEGISAI_API_BASE_URL }}
+        run: |
+          if [ -z "$API_BASE_URL" ]; then
+            echo "Missing secret AEGISAI_API_BASE_URL (e.g. https://aegisai-api.onrender.com)"
+            exit 1
+          fi
+          curl -sf -X POST "${API_BASE_URL}/api/orchestrators/ai-content/run" --max-time 300
+
+  stock-research:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.schedule == '0 11 * * 1-5' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.pipeline == 'all' || github.event.inputs.pipeline == 'stock-research'))
+    steps:
+      - name: Run stock research pipeline
+        env:
+          API_BASE_URL: ${{ secrets.AEGISAI_API_BASE_URL }}
+        run: |
+          if [ -z "$API_BASE_URL" ]; then
+            echo "Missing secret AEGISAI_API_BASE_URL (e.g. https://aegisai-api.onrender.com)"
+            exit 1
+          fi
+          curl -sf -X POST "${API_BASE_URL}/api/orchestrators/stock-research/run" --max-time 300

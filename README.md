@@ -23,13 +23,18 @@ make verify
 
 ## Deploy
 
+**Free tier ($0):** Supabase + Render free web service + Vercel + GitHub Actions cron.
+
 | Layer | Service |
 | --- | --- |
 | Frontend | Vercel (`apps/web`) |
-| Backend | Render (`render.yaml`) |
+| Backend | Render free web service (Docker) |
 | Database | Supabase Postgres |
+| Schedulers | GitHub Actions (`.github/workflows/orchestrator-cron.yml`) |
 
-See [docs/PRODUCT.md#deployment-strategy](docs/PRODUCT.md#deployment-strategy).
+Step-by-step: [platform/architecture/DEPLOYMENT-AND-SECRETS.md](platform/architecture/DEPLOYMENT-AND-SECRETS.md).
+
+Paid Blueprint (`render.yaml`, ~$9/mo): optional for always-on API + native Render Cron.
 
 ## Portfolio
 

@@ -1,3 +1,7 @@
+# Paid Blueprint (~$9/mo): starter web + 2 cron jobs.
+# Free tier ($0): skip Blueprint — create one free web service manually (see DEPLOYMENT-AND-SECRETS.md)
+# and use .github/workflows/orchestrator-cron.yml for scheduled runs.
+
 services:
   - type: web
     name: aegisai-api

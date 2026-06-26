@@ -97,12 +97,12 @@ You do **not** need separate repos today to deploy. Separate repos help when dif
 │ │ Control plane UI    │ ──────► │ FastAPI :8000                       │  │
 │ └─────────────────────┘  /api/* └──────────┬──────────────────────────┘  │
 │                                             │                               │
-│ ┌─────────────────────┐         ┌───────────▼──────────┐  ┌────────────┐ │
-│ │ venkat-ai-portfolio │ iframe  │ aegisai-content-     │  │ aegisai-   │ │
-│ │ /projects/aegisai   │         │ pipeline (cron)      │  │ stock-     │ │
-│ └─────────────────────┘         └───────────┬──────────┘  │ research   │ │
-│                                             │              │ (cron)     │ │
+│ ┌─────────────────────┐         ┌───────────▼──────────┐                   │
+│ │ venkat-ai-portfolio │ iframe  │ GitHub Actions cron  │                   │
+│ │ /projects/aegisai   │         │ (free tier)          │                   │
+│ └─────────────────────┘         └───────────┬──────────┘                   │
 │                                             └──────► POST /api/orchestrators/*/run
+│                         Render Cron (paid Blueprint only) ──► same endpoints
 └──────────────────────────────────────────────────────────────────────────┘
                                               │
                     ┌─────────────────────────┼─────────────────────────┐
@@ -114,29 +114,85 @@ You do **not** need separate repos today to deploy. Separate repos help when dif
             └──────────────┘          └──────────────┘          └──────────────┘
 ```
 
-### Deploy order (first time)
+### Recommended free stack ($0/month)
+
+| Layer | Service | Cost |
+| --- | --- | --- |
+| Database | **Supabase** Postgres | Free |
+| API | **Render** web service (`plan: free`) | Free |
+| UI | **Vercel** (`apps/web`) | Free |
+| LLM | **Gemini** (Google AI Studio) | Free tier |
+| Schedulers | **GitHub Actions** (`.github/workflows/orchestrator-cron.yml`) | Free |
+
+> **Do not use Blueprint on free tier.** `render.yaml` uses `plan: starter` (~$7/mo) plus two Render Cron jobs (~$1/mo each), which triggers Render’s payment prompt.
+
+### Deploy order — free tier (recommended)
 
 | Step | Service | Action |
 | --- | --- | --- |
 | 1 | **Supabase** | Create project → run `platform/database/postgres-migration.sql` → copy `DATABASE_URL` |
-| 2 | **Render** | Connect GitHub repo → Blueprint from `render.yaml` → set all secrets (Part 4) |
-| 3 | **Vercel** | Import repo, root `apps/web` → set env (Part 4) → deploy |
-| 4 | **Slack** | Create incoming webhooks for content + stock + HITL channels |
-| 5 | **Telegram** (optional) | Create bot via @BotFather → get `chat_id` |
-| 6 | **Gemini** | API key from Google AI Studio (free tier) |
-| 7 | **Langfuse / LangSmith** (optional) | Free cloud accounts for traces |
-| 8 | **GitHub / Vercel / Render** (website build) | Tokens for deploy connectors |
-| 9 | **Smoke test** | `GET /health` → UI → AI Gateway test → run one orchestrator |
+| 2 | **Render** | **New → Web Service** (not Blueprint) → Docker, **Free** instance — see steps below |
+| 3 | **Vercel** | Import repo, root `apps/web` → deploy → copy URL |
+| 4 | **Render CORS** | Set `AEGISAI_CORS_ORIGINS` to your Vercel URL → redeploy API |
+| 5 | **Gemini** | API key from Google AI Studio → set `GEMINI_API_KEY` on Render |
+| 6 | **GitHub Actions** | Repo **Settings → Secrets → Actions** → add `AEGISAI_API_BASE_URL` |
+| 7 | **Slack** (optional) | Incoming webhooks for content + stock + HITL |
+| 8 | **Smoke test** | `GET /health` → UI → manual orchestrator run → check Actions schedule |
 
-### Render services (`render.yaml`)
+#### Step 2 detail — Render free web service (skip Blueprint)
+
+1. Render Dashboard → **New → Web Service** (not Blueprint).
+2. Connect repo `aegisai-enterprise-agent-platform`.
+3. Configure:
+
+| Setting | Value |
+| --- | --- |
+| Name | `aegisai-api` |
+| Runtime | Docker |
+| Dockerfile path | `services/api/Dockerfile` |
+| Docker context | `.` (repo root) |
+| **Instance type** | **Free** |
+| Health check path | `/health` |
+
+4. Set Tier A env vars (Part 5) — minimum: `DATABASE_URL`, `AEGISAI_DB_BACKEND=postgres`, `GEMINI_API_KEY`, `AEGISAI_LLM_PROVIDER=gemini`, `AEGISAI_EXECUTION_TOKEN_SECRET`, `AEGISAI_AUDIT_SIGNING_KEY`.
+5. Deploy. Note your URL, e.g. `https://aegisai-api.onrender.com`.
+
+**Free tier limits:** spins down after 15 min idle (~30–60s cold start); 750 instance hours/month.
+
+#### Step 6 detail — GitHub Actions cron (replaces Render Cron)
+
+Workflow: `.github/workflows/orchestrator-cron.yml`
+
+1. GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**
+2. Name: `AEGISAI_API_BASE_URL` — value: your Render API URL (no trailing slash), e.g. `https://aegisai-api.onrender.com`
+3. Schedules (UTC):
+
+| Pipeline | Cron | Meaning |
+| --- | --- | --- |
+| AI content | `0 7 * * 1,4` | Mon & Thu 07:00 UTC |
+| Stock research | `0 11 * * 1-5` | Weekdays 11:00 UTC (~6 AM EST) |
+
+4. **Manual test:** Actions → **Orchestrator cron** → **Run workflow** → choose pipeline.
+
+Update `apps/web/vercel.json` rewrites if your Render URL differs from `https://aegisai-api.onrender.com`.
+
+### Deploy order — paid Blueprint (optional)
+
+| Step | Service | Action |
+| --- | --- | --- |
+| 1 | **Supabase** | Same as free tier |
+| 2 | **Render** | Blueprint from `render.yaml` → payment method required (~$9/mo) |
+| 3–9 | … | Same as before |
+
+### Render services (`render.yaml` — paid Blueprint)
 
 | Service | Type | Schedule / URL |
 | --- | --- | --- |
-| `aegisai-api` | Web | `https://aegisai-api.onrender.com` |
+| `aegisai-api` | Web (`starter`) | `https://aegisai-api.onrender.com` |
 | `aegisai-content-pipeline` | Cron | `0 7 * * 1,4` (Mon & Thu 07:00 UTC) |
 | `aegisai-stock-research` | Cron | `0 11 * * 1-5` (weekdays ≈ 6AM EST) |
 
-Cron jobs call the **web service** — API must be up when cron fires.
+Cron jobs call the **web service** — API must be up when cron fires. On free tier, use GitHub Actions instead.
 
 ### Vercel (`apps/web`)
 
