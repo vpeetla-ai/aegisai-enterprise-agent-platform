@@ -3,18 +3,49 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Union
+from urllib.parse import quote
 
 from .control_plane_store import SQLiteControlPlaneStore
 
 ControlPlaneStore = Union[SQLiteControlPlaneStore, "PostgresControlPlaneStore"]
 
 
+def normalize_postgres_url(url: str) -> str:
+    """Re-encode the password so #, @, and other special chars parse in DATABASE_URL."""
+    url = url.strip()
+    if not url.startswith(("postgresql://", "postgres://")):
+        return url
+
+    scheme_sep = "://"
+    scheme_end = url.index(scheme_sep) + len(scheme_sep)
+    rest = url[scheme_end:]
+    host_sep = rest.rfind("@")
+    if host_sep == -1:
+        return url
+
+    userinfo = rest[:host_sep]
+    location = rest[host_sep + 1 :]
+    colon = userinfo.find(":")
+    if colon == -1:
+        return url
+
+    user = userinfo[:colon]
+    password = userinfo[colon + 1 :]
+    encoded = quote(password, safe="")
+    if encoded == password:
+        return url
+
+    scheme = url[: scheme_end - len(scheme_sep)]
+    return f"{scheme}{scheme_sep}{user}:{encoded}@{location}"
+
+
 def _postgres_database_url() -> str:
     """Render/Heroku use DATABASE_URL; local docs also allow AEGISAI_DATABASE_URL."""
-    return (
+    raw = (
         os.getenv("DATABASE_URL", "").strip()
         or os.getenv("AEGISAI_DATABASE_URL", "").strip()
     )
+    return normalize_postgres_url(raw) if raw else ""
 
 
 def build_control_plane_store() -> ControlPlaneStore:

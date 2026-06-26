@@ -155,6 +155,8 @@ You do **not** need separate repos today to deploy. Separate repos help when dif
 | Health check path | `/health` |
 
 4. Set Tier A env vars (Part 5) — minimum: `DATABASE_URL`, `AEGISAI_DB_BACKEND=postgres`, `GEMINI_API_KEY`, `AEGISAI_LLM_PROVIDER=gemini`, `AEGISAI_EXECUTION_TOKEN_SECRET`, `AEGISAI_AUDIT_SIGNING_KEY`.
+
+> **Supabase `DATABASE_URL` tip:** Use **Connect → Transaction pooler** (port `6543`). If your database password contains `#`, `@`, or `%`, the app auto-encodes it — or encode manually (`#` → `%23`).
 5. Deploy. Note your URL, e.g. `https://aegisai-api.onrender.com`.
 
 **Free tier limits:** spins down after 15 min idle (~30–60s cold start); 750 instance hours/month.
