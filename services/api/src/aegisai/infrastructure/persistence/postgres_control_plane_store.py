@@ -36,16 +36,17 @@ class PostgresControlPlaneStore:
         override = os.getenv("AEGISAI_POSTGRES_MIGRATION_PATH", "").strip()
         if override:
             return Path(override)
-        candidates = [
-            Path("/app/migrations/postgres-migration.sql"),
-            Path(__file__).resolve().parents[6]
-            / "platform"
-            / "database"
-            / "postgres-migration.sql",
-        ]
-        for path in candidates:
-            if path.is_file():
-                return path
+
+        docker_path = Path("/app/migrations/postgres-migration.sql")
+        if docker_path.is_file():
+            return docker_path
+
+        file_path = Path(__file__).resolve()
+        for ancestor in file_path.parents:
+            candidate = ancestor / "platform" / "database" / "postgres-migration.sql"
+            if candidate.is_file():
+                return candidate
+
         raise FileNotFoundError(
             "postgres-migration.sql not found; set AEGISAI_POSTGRES_MIGRATION_PATH"
         )
