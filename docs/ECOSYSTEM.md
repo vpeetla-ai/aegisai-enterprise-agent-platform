@@ -11,19 +11,20 @@ This document aligns **[AegisAI](https://github.com/vpeetla-ai/aegisai-enterpris
 | **What should agents do?** | [venkat-ai-platform](https://github.com/vpeetla-ai/venkat-ai-platform) | LangGraph orchestration — Chief routes intent, workers run in parallel, Critic reviews output |
 | **What are agents allowed to do?** | [aegisai-enterprise-agent-platform](https://github.com/vpeetla-ai/aegisai-enterprise-agent-platform) | Governance control plane — AI Gateway, policy, HITL, signed audit, FinOps |
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  Venkat AI Platform (VAP)                                   │
-│  Chief → Planner → Workers → Insight → Critic → Notify      │
-│  Cognitive work · RAG · multi-channel delivery              │
-└───────────────────────────┬─────────────────────────────────┘
-                            │ side-effecting tool calls (target)
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│  AegisAI                                                    │
-│  POST /api/gateway/tool-request → policy → HITL → execute   │
-│  Monitor · Govern · Remediate                               │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph VAP["Venkat AI Platform"]
+        ORCH["3 orchestrators"]
+        NOTIFY["notify.slack · telegram · whatsapp"]
+    end
+    subgraph AegisAI["AegisAI"]
+        GW["POST /api/gateway/tool-request"]
+        MON["Monitor"]
+        GOV["Govern · HITL"]
+        REM["Remediate"]
+    end
+    NOTIFY --> GW
+    GW --> MON & GOV & REM
 ```
 
 **Today:** VAP **notification delivery** is gateway-wrapped when `AEGISAI_API_BASE_URL` is set (`app/integrations/aegis_gateway.py`). Cron orchestrators and Website Build deploy broker path remain on the roadmap.

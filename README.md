@@ -40,7 +40,9 @@ AegisAI is a **governance control plane**:
 | Content + Stock cron orchestrators | ✅ Managed runs (no per-tool gateway intercept yet) |
 | Agent registry Postgres persistence | 🟡 In-memory today; gateway enforces lifecycle + allowlists |
 | OPA policy engine | 🟡 Optional — default is builtin policy simulator |
-| VAP / ai-content-factory gateway wiring | ✅ VAP notify via SDK pattern | Ingest + cron pipelines planned |
+| VAP notify gateway | ✅ Wired (`aegis_gateway.py`) |
+| ai-content-factory publish | 🟡 Planned |
+| Cron orchestrator notify | 🟡 Planned |
 
 **Free tier:** manual Render web service + GitHub Actions cron ([DEPLOYMENT-AND-SECRETS.md](platform/architecture/DEPLOYMENT-AND-SECRETS.md)). **`render.yaml` Blueprint** is optional paid (~$9/mo).
 
@@ -62,6 +64,7 @@ Agent fleet → AI Gateway (policy + HITL) → Connectors (GitHub, Vercel, Rende
 ```mermaid
 flowchart TB
     subgraph Fleet["Production agent fleet"]
+        VAP["Venkat AI Platform<br/>3 orchestrators · notify"]
         CONTENT["AI Content Pipeline<br/>Mon/Thu cron"]
         STOCK["Stock Research<br/>Weekdays 6AM EST"]
         WEB["Website Build<br/>On-demand LangGraph"]
@@ -92,7 +95,7 @@ flowchart TB
         CONN["Connectors<br/>GitHub · Vercel · Render · Stripe"]
     end
 
-    Fleet -->|"tool calls (Website Build + SDK agents)"| GW
+    Fleet -->|"tool calls (VAP notify · Website Build · SDK)"| GW
     GW --> ID --> POL
     POL -->|"allow"| TOK --> BRK --> CONN
     POL -->|"approval_required"| GOV_UI
@@ -151,7 +154,21 @@ flowchart LR
     HITL -->|"approved"| LIVE["GitHub + Vercel + Render"]
 ```
 
-Deploy tools (`deploy.vercel_release`, `deploy.render_release`, `github.create_pull_request`) are **`approval_required`** at runtime. `github.push_files` is targeted for gateway routing — see [ARCHITECTURE.md](platform/architecture/ARCHITECTURE.md).
+Deploy tools (`deploy.vercel_release`, `deploy.render_release`, `github.create_pull_request`, `github.push_files`) are **`approval_required`** at runtime.
+
+### VAP notify flow (integrated)
+
+```mermaid
+sequenceDiagram
+    participant VAP as venkat-ai-platform
+    participant GW as AI Gateway
+    participant REG as Agent registry
+    participant N as Slack/Telegram/WhatsApp
+    VAP->>GW: notify.slack / notify.telegram / notify.whatsapp
+    GW->>REG: lifecycle + allowlist check
+    GW-->>VAP: allow + token / HITL / deny
+    VAP->>N: deliver if allowed
+```
 
 ---
 
@@ -223,7 +240,7 @@ See [docs/ECOSYSTEM.md](docs/ECOSYSTEM.md) for how repos connect.
 
 | Project | Role |
 |---------|------|
-| [venkat-ai-platform](https://github.com/vpeetla-ai/venkat-ai-platform) | Multi-agent OS — orchestration layer (gateway integration planned) |
+| [venkat-ai-platform](https://github.com/vpeetla-ai/venkat-ai-platform) | Multi-agent OS — notify gateway integrated |
 | [ai-content-factory](https://github.com/vpeetla-ai/ai-content-factory) | Content pipeline — application layer with its own HITL gate |
 | [enterprise_rag_platform](https://github.com/vpeetla-ai/enterprise_rag_platform) | Governed RAG reference architecture |
 
