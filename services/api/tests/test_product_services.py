@@ -159,6 +159,60 @@ class ProductServiceTests(unittest.TestCase):
         self.assertEqual(result["gateway_decision"], "approval_required")
         self.assertIn("pause_tool_call", result["enforcement_steps"])
 
+    def test_vap_notify_allowed_for_registered_pilot_agent(self) -> None:
+        service = PlatformControlPlaneService(
+            agent_registry=AgentRegistryService(),
+            identity_service=IdentityRBACService(),
+            kill_switch_service=KillSwitchService(),
+            policy_simulator=PolicySimulatorService(),
+        )
+        result = service.gateway_decision(
+            GatewayToolRequest(
+                tenant_id="bank-demo",
+                agent_id="venkat-ai-platform",
+                principal_id="vap-orchestrator",
+                tool_name="notify.slack",
+                action_type="deliver_notification",
+                target_system="slack",
+                amount_usd=0,
+                data_classification=DataClassification.INTERNAL,
+                reversible=True,
+                customer_impact=False,
+                grounding_score=0.9,
+                safety_score=0.95,
+                policy_compliance_score=0.9,
+            )
+        )
+        self.assertIn(result["gateway_decision"], {"allow", "approval_required"})
+
+    def test_revoked_agent_denied_at_gateway(self) -> None:
+        registry = AgentRegistryService()
+        registry.update_agent_status("venkat-ai-platform", "revoked")
+        service = PlatformControlPlaneService(
+            agent_registry=registry,
+            identity_service=IdentityRBACService(),
+            kill_switch_service=KillSwitchService(),
+            policy_simulator=PolicySimulatorService(),
+        )
+        result = service.gateway_decision(
+            GatewayToolRequest(
+                tenant_id="bank-demo",
+                agent_id="venkat-ai-platform",
+                principal_id="vap-orchestrator",
+                tool_name="notify.slack",
+                action_type="deliver_notification",
+                target_system="slack",
+                amount_usd=0,
+                data_classification=DataClassification.INTERNAL,
+                reversible=True,
+                customer_impact=False,
+                grounding_score=0.9,
+                safety_score=0.95,
+                policy_compliance_score=0.9,
+            )
+        )
+        self.assertEqual(result["gateway_decision"], "deny")
+
     def test_top_tier_product_surfaces_explain_gateway_policy_and_audit(self) -> None:
         registry = AgentRegistryService()
         identity = IdentityRBACService()

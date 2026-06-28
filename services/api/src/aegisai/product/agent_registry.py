@@ -32,6 +32,9 @@ class AgentRegistryService:
     def list_agents(self) -> tuple[RegisteredAgent, ...]:
         return tuple(self._agents.values())
 
+    def get_agent(self, agent_id: str) -> RegisteredAgent | None:
+        return self._agents.get(agent_id)
+
     def register_agent(
         self,
         agent_id: str,
@@ -270,6 +273,27 @@ class AgentRegistryService:
                 monthly_cost_usd=44.0,
                 open_incidents=0,
                 value_metric="Code review gate before staging/production deploy",
+            ),
+            RegisteredAgent(
+                agent_id="venkat-ai-platform",
+                name="Venkat AI Platform (VAP)",
+                owner="AI Platform",
+                business_domain="Multi-Agent Orchestration",
+                risk_tier="medium",
+                autonomy_level=3,
+                status="pilot",
+                model_provider="OpenRouter",
+                allowed_tools=(
+                    "rag.search_policy_memory",
+                    "notify.slack",
+                    "notify.telegram",
+                    "notify.whatsapp",
+                ),
+                data_classes=("internal", "confidential"),
+                last_run_at="not_run_yet",
+                monthly_cost_usd=62.0,
+                open_incidents=0,
+                value_metric="Chief orchestration with gateway-governed delivery channels",
             ),
         )
 

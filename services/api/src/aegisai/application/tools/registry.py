@@ -79,4 +79,25 @@ def enterprise_tool_registry() -> tuple[AgentToolSpec, ...]:
             approval_required=False,
             description="Analyze Figma frames and export design tokens.",
         ),
+        AgentToolSpec(
+            name="notify.slack",
+            owner="venkat-ai-platform",
+            side_effecting=True,
+            approval_required=False,
+            description="Deliver agent report to Slack via incoming webhook.",
+        ),
+        AgentToolSpec(
+            name="notify.telegram",
+            owner="venkat-ai-platform",
+            side_effecting=True,
+            approval_required=False,
+            description="Deliver agent report to Telegram chat.",
+        ),
+        AgentToolSpec(
+            name="notify.whatsapp",
+            owner="venkat-ai-platform",
+            side_effecting=True,
+            approval_required=True,
+            description="Deliver agent report via Twilio WhatsApp (customer channel).",
+        ),
     )

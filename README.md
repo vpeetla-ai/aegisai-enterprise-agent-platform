@@ -38,9 +38,9 @@ AegisAI is a **governance control plane**:
 | TypeScript reference client (`apps/web/lib/gateway/`) | ✅ In-repo reference (not npm package) |
 | Control plane UI (dashboard, monitor, governance) | ✅ |
 | Content + Stock cron orchestrators | ✅ Managed runs (no per-tool gateway intercept yet) |
-| Agent registry Postgres persistence | 🟡 In-memory today; SQL migration planned |
+| Agent registry Postgres persistence | 🟡 In-memory today; gateway enforces lifecycle + allowlists |
 | OPA policy engine | 🟡 Optional — default is builtin policy simulator |
-| VAP / ai-content-factory gateway wiring | 🟡 Documented — integrate via SDK ([ECOSYSTEM.md](docs/ECOSYSTEM.md)) |
+| VAP / ai-content-factory gateway wiring | ✅ VAP notify via SDK pattern | Ingest + cron pipelines planned |
 
 **Free tier:** manual Render web service + GitHub Actions cron ([DEPLOYMENT-AND-SECRETS.md](platform/architecture/DEPLOYMENT-AND-SECRETS.md)). **`render.yaml` Blueprint** is optional paid (~$9/mo).
 

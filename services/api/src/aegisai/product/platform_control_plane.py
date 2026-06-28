@@ -140,6 +140,67 @@ class PlatformControlPlaneService:
             }
         return self._registered_agent_readiness(agent)
 
+    def _registry_gateway_check(self, request: GatewayToolRequest) -> dict[str, object] | None:
+        """Enforce agent registry lifecycle and tool allowlists at the gateway."""
+        agent = self.agent_registry.get_agent(request.agent_id)
+        if agent is None:
+            return None
+
+        if agent.status in {"revoked", "deprecated"}:
+            return {
+                "product_module": "Governance Gateway",
+                "gateway_decision": "deny",
+                "tool_name": request.tool_name,
+                "agent_id": request.agent_id,
+                "business_explanation": (
+                    f"Agent '{request.agent_id}' is {agent.status} and cannot request tools."
+                ),
+                "enforcement_steps": ["deny_tool_call", "record_audit_event", "notify_agent_owner"],
+                "registry": {"status": agent.status},
+            }
+
+        side_effecting = request.tool_name != "rag.search_policy_memory"
+        if side_effecting and request.tool_name not in agent.allowed_tools:
+            return {
+                "product_module": "Governance Gateway",
+                "gateway_decision": "deny",
+                "tool_name": request.tool_name,
+                "agent_id": request.agent_id,
+                "business_explanation": (
+                    f"Tool '{request.tool_name}' is not in the allowlist for agent '{request.agent_id}'."
+                ),
+                "enforcement_steps": ["deny_tool_call", "record_audit_event"],
+                "registry": {"allowed_tools": list(agent.allowed_tools)},
+            }
+
+        if agent.status == "shadow" and side_effecting:
+            return {
+                "product_module": "Governance Gateway",
+                "gateway_decision": "approval_required",
+                "tool_name": request.tool_name,
+                "agent_id": request.agent_id,
+                "business_explanation": (
+                    f"Agent '{request.agent_id}' is in shadow mode — side effects require human approval."
+                ),
+                "enforcement_steps": ["create_review_task", "pause_tool_call", "record_audit_event"],
+                "registry": {"status": agent.status},
+            }
+
+        if agent.status == "restricted" and side_effecting:
+            return {
+                "product_module": "Governance Gateway",
+                "gateway_decision": "approval_required",
+                "tool_name": request.tool_name,
+                "agent_id": request.agent_id,
+                "business_explanation": (
+                    f"Agent '{request.agent_id}' is restricted — elevated review required."
+                ),
+                "enforcement_steps": ["create_review_task", "pause_tool_call", "record_audit_event"],
+                "registry": {"status": agent.status},
+            }
+
+        return None
+
     def gateway_decision(self, request: GatewayToolRequest) -> dict[str, object]:
         kill_rule = self.kill_switch_service.is_blocked(
             request.tenant_id,
@@ -156,6 +217,10 @@ class PlatformControlPlaneService:
                 "enforcement_steps": ["stop_execution", "record_audit_event", "notify_incident_owner"],
                 "kill_switch": self.kill_switch_service._payload(kill_rule),
             }
+
+        registry_block = self._registry_gateway_check(request)
+        if registry_block is not None:
+            return registry_block
 
         authorization = self.identity_service.authorize_tool(
             principal_id=request.principal_id,
@@ -203,6 +268,7 @@ class PlatformControlPlaneService:
             "deploy.vercel_release",
             "deploy.render_release",
             "github.create_pull_request",
+            "github.push_files",
         }
         if request.tool_name in deploy_tools or request.action_type.startswith("deploy_"):
             gateway_decision = "approval_required"
@@ -212,6 +278,14 @@ class PlatformControlPlaneService:
                 "explanation": (
                     "Production deploy tools always require human approval before execution."
                 ),
+            }
+        customer_channels = {"notify.whatsapp"}
+        if request.tool_name in customer_channels:
+            gateway_decision = "approval_required"
+            simulation = {
+                **simulation,
+                "decision": "human_approval",
+                "explanation": "Customer-facing WhatsApp delivery requires human approval.",
             }
         steps = ["authorize_identity", "score_risk", "evaluate_policy"]
         if gateway_decision == "allow":

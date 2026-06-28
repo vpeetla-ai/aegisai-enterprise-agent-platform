@@ -26,7 +26,18 @@ This document aligns **[AegisAI](https://github.com/vpeetla-ai/aegisai-enterpris
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Today:** integration is documented and SDK-ready; VAP calls external APIs directly. **Target:** register VAP as `agent_id=venkat-ai-platform` and route Slack/Telegram/deploy tools through the gateway.
+**Today:** VAP **notification delivery** is gateway-wrapped when `AEGISAI_API_BASE_URL` is set (`app/integrations/aegis_gateway.py`). Cron orchestrators and Website Build deploy broker path remain on the roadmap.
+
+### VAP env (orchestration repo)
+
+```bash
+AEGISAI_API_BASE_URL=https://aegisai-api.onrender.com
+AEGISAI_AGENT_ID=venkat-ai-platform
+AEGISAI_TENANT_ID=bank-demo
+AEGISAI_PRINCIPAL_ID=vap-orchestrator
+AEGISAI_GATEWAY_ENABLED=true
+AEGISAI_GATEWAY_FAIL_OPEN=true   # local dev without AegisAI running
+```
 
 ---
 
@@ -50,7 +61,7 @@ This document aligns **[AegisAI](https://github.com/vpeetla-ai/aegisai-enterpris
 | **External agents** (Python/TS SDK) | Yes — `POST /api/gateway/tool-request` | Policy-driven |
 | **AI Content Pipeline** cron | No — managed run, LLM + notifications only | N/A |
 | **Stock Research** cron | No — managed run, notifications only | N/A |
-| **VAP** (venkat-ai-platform) | Not wired yet — integration roadmap | Planned |
+| **VAP** (venkat-ai-platform) | Yes — notify tools when `AEGISAI_API_BASE_URL` set | WhatsApp → HITL |
 
 ---
 

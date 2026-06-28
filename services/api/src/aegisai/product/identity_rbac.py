@@ -44,6 +44,17 @@ class IdentityRBACService:
                 "infra.change_production_configuration",
             ),
         ),
+        "vap-orchestrator": Principal(
+            principal_id="vap-orchestrator",
+            tenant_id="bank-demo",
+            roles=("workflow_owner", "execution_broker"),
+            allowed_tools=(
+                "rag.search_policy_memory",
+                "notify.slack",
+                "notify.telegram",
+                "notify.whatsapp",
+            ),
+        ),
     }
 
     def principal(self, principal_id: str) -> Principal | None:
