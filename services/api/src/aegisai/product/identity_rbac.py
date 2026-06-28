@@ -55,6 +55,22 @@ class IdentityRBACService:
                 "notify.whatsapp",
             ),
         ),
+        "enterprise-rag-principal": Principal(
+            principal_id="enterprise-rag-principal",
+            tenant_id="bank-demo",
+            roles=("workflow_owner", "knowledge_engineer"),
+            allowed_tools=(
+                "rag.search_policy_memory",
+                "rag.ingest_document",
+                "rag.high_risk_answer",
+            ),
+        ),
+        "agentops-orchestrator": Principal(
+            principal_id="agentops-orchestrator",
+            tenant_id="bank-demo",
+            roles=("workflow_owner", "execution_broker"),
+            allowed_tools=("mission.ship_artifact",),
+        ),
     }
 
     def principal(self, principal_id: str) -> Principal | None:

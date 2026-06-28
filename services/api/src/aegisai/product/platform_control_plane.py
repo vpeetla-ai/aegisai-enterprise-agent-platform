@@ -287,6 +287,24 @@ class PlatformControlPlaneService:
                 "decision": "human_approval",
                 "explanation": "Customer-facing WhatsApp delivery requires human approval.",
             }
+        rag_hitl_tools = {"rag.ingest_document", "rag.high_risk_answer"}
+        if request.tool_name in rag_hitl_tools:
+            gateway_decision = "approval_required"
+            simulation = {
+                **simulation,
+                "decision": "human_approval",
+                "explanation": (
+                    "Enterprise RAG ingest and high-risk answer delivery require human approval."
+                ),
+            }
+        mission_hitl_tools = {"mission.ship_artifact"}
+        if request.tool_name in mission_hitl_tools:
+            gateway_decision = "approval_required"
+            simulation = {
+                **simulation,
+                "decision": "human_approval",
+                "explanation": "Human-gated mission ship requires reviewer approval.",
+            }
         steps = ["authorize_identity", "score_risk", "evaluate_policy"]
         if gateway_decision == "allow":
             steps.extend(["issue_execution_token", "record_audit_event"])

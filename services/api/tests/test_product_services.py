@@ -185,6 +185,33 @@ class ProductServiceTests(unittest.TestCase):
         )
         self.assertIn(result["gateway_decision"], {"allow", "approval_required"})
 
+    def test_enterprise_rag_high_risk_requires_approval(self) -> None:
+        service = PlatformControlPlaneService(
+            agent_registry=AgentRegistryService(),
+            identity_service=IdentityRBACService(),
+            kill_switch_service=KillSwitchService(),
+            policy_simulator=PolicySimulatorService(),
+        )
+        result = service.gateway_decision(
+            GatewayToolRequest(
+                tenant_id="bank-demo",
+                agent_id="enterprise-rag-platform",
+                principal_id="enterprise-rag-principal",
+                tool_name="rag.high_risk_answer",
+                action_type="deliver_answer",
+                target_system="enterprise_rag",
+                amount_usd=0,
+                data_classification=DataClassification.INTERNAL,
+                reversible=True,
+                customer_impact=False,
+                grounding_score=0.9,
+                safety_score=0.55,
+                policy_compliance_score=0.85,
+            )
+        )
+        self.assertEqual(result["gateway_decision"], "approval_required")
+        self.assertIn("pause_tool_call", result["enforcement_steps"])
+
     def test_revoked_agent_denied_at_gateway(self) -> None:
         registry = AgentRegistryService()
         registry.update_agent_status("venkat-ai-platform", "revoked")
