@@ -6,9 +6,9 @@
 
 **Monitor → Govern → Remediate** — a production control plane for live AI agent fleets, not another agent builder.
 
-> Production agents connect through an **AI Gateway** that intercepts every tool call: identity, RBAC, policy, HITL approval, signed audit, and FinOps — before side effects execute.
+> Production agents connect through an **AI Gateway** for tool authorization: identity, RBAC, policy, HITL approval, signed audit, and FinOps — before side effects execute.
 
-[▶ Live control plane](https://aegisai-enterprise-agent-platform.vercel.app) · [📖 North-star architecture](platform/architecture/architecture.md) · [🔑 Deploy & secrets](platform/architecture/DEPLOYMENT-AND-SECRETS.md)
+[▶ Live control plane](https://aegisai-enterprise-agent-platform.vercel.app) · [📖 North-star architecture](platform/architecture/ARCHITECTURE.md) · [🔗 Ecosystem map](docs/ECOSYSTEM.md) · [🔑 Deploy & secrets](platform/architecture/DEPLOYMENT-AND-SECRETS.md)
 
 ---
 
@@ -25,6 +25,24 @@ AegisAI is a **governance control plane**:
 | Risky deploy actions | OPA policy + **forced HITL** for `deploy_*` tools |
 | No audit trail | Signed audit packets + export |
 | Shadow agents | Onboarding lifecycle: Shadow → Pilot → Approved |
+
+---
+
+## Implementation status (honest)
+
+| Component | Status |
+|-----------|--------|
+| AI Gateway (`POST /api/gateway/tool-request`) | ✅ Production |
+| Website Build orchestrator + HITL on deploy | ✅ Gateway-integrated |
+| Python gateway SDK (`sdk/python/`) | ✅ |
+| TypeScript reference client (`apps/web/lib/gateway/`) | ✅ In-repo reference (not npm package) |
+| Control plane UI (dashboard, monitor, governance) | ✅ |
+| Content + Stock cron orchestrators | ✅ Managed runs (no per-tool gateway intercept yet) |
+| Agent registry Postgres persistence | 🟡 In-memory today; SQL migration planned |
+| OPA policy engine | 🟡 Optional — default is builtin policy simulator |
+| VAP / ai-content-factory gateway wiring | 🟡 Documented — integrate via SDK ([ECOSYSTEM.md](docs/ECOSYSTEM.md)) |
+
+**Free tier:** manual Render web service + GitHub Actions cron ([DEPLOYMENT-AND-SECRETS.md](platform/architecture/DEPLOYMENT-AND-SECRETS.md)). **`render.yaml` Blueprint** is optional paid (~$9/mo).
 
 ---
 
@@ -74,7 +92,7 @@ flowchart TB
         CONN["Connectors<br/>GitHub · Vercel · Render · Stripe"]
     end
 
-    Fleet -->|"all tool calls"| GW
+    Fleet -->|"tool calls (Website Build + SDK agents)"| GW
     GW --> ID --> POL
     POL -->|"allow"| TOK --> BRK --> CONN
     POL -->|"approval_required"| GOV_UI
@@ -113,8 +131,12 @@ flowchart LR
         DB["Postgres / Supabase"]
         NTF["Slack · Telegram"]
     end
+    subgraph Obs
+        LF["Langfuse · LangSmith"]
+    end
 
     WEB --> API --> Product --> Application --> Domain --> Infra
+    Application -.-> Obs
 ```
 
 ### Website Build orchestrator (LangGraph)
@@ -129,7 +151,7 @@ flowchart LR
     HITL -->|"approved"| LIVE["GitHub + Vercel + Render"]
 ```
 
-Deploy tools (`deploy.vercel_release`, `deploy.render_release`, `github.push_files`) are **always** `approval_required` via policy.
+Deploy tools (`deploy.vercel_release`, `deploy.render_release`, `github.create_pull_request`) are **`approval_required`** at runtime. `github.push_files` is targeted for gateway routing — see [ARCHITECTURE.md](platform/architecture/ARCHITECTURE.md).
 
 ---
 
@@ -141,9 +163,9 @@ Deploy tools (`deploy.vercel_release`, `deploy.render_release`, `github.push_fil
 | **HITL approvals** | In-app queue + Slack approvals |
 | **Agent onboarding** | Register → Shadow → Pilot → Approved |
 | **Managed orchestrators** | Content pipeline, stock research, website build |
-| **Policy engine** | OPA (`platform/policy/aegisai.rego`) |
+| **Policy engine** | Builtin simulator + optional OPA (`platform/policy/aegisai.rego`) |
 | **Observability** | Langfuse + LangSmith traces |
-| **SDKs** | Python + TypeScript gateway clients |
+| **SDKs** | Python: `sdk/python/` · TS reference: `apps/web/lib/gateway/client.ts` |
 
 ---
 
@@ -184,7 +206,7 @@ Step-by-step: [DEPLOYMENT-AND-SECRETS.md](platform/architecture/DEPLOYMENT-AND-S
 aegisai-enterprise-agent-platform/
 ├── apps/web/              # Next.js control plane UI
 ├── services/api/          # FastAPI — gateway, product, orchestration
-├── orchestrators/         # Content + stock cron pipelines
+├── orchestrators/         # Phase-2 stubs (canonical code: services/api/.../orchestration/)
 ├── sdk/python/            # Gateway SDK
 ├── platform/
 │   ├── architecture/      # North-star docs
@@ -197,11 +219,13 @@ aegisai-enterprise-agent-platform/
 
 ## Related projects
 
+See [docs/ECOSYSTEM.md](docs/ECOSYSTEM.md) for how repos connect.
+
 | Project | Role |
 |---------|------|
-| [venkat-ai-platform](https://github.com/vpeetla-ai/venkat-ai-platform) | Multi-agent personal OS — Chief orchestrator |
-| [ai-content-factory](https://github.com/vpeetla-ai/ai-content-factory) | Content pipeline agents governed via gateway |
-| [enterprise_rag_platform](https://github.com/vpeetla-ai/enterprise_rag_platform) | Governed RAG reference |
+| [venkat-ai-platform](https://github.com/vpeetla-ai/venkat-ai-platform) | Multi-agent OS — orchestration layer (gateway integration planned) |
+| [ai-content-factory](https://github.com/vpeetla-ai/ai-content-factory) | Content pipeline — application layer with its own HITL gate |
+| [enterprise_rag_platform](https://github.com/vpeetla-ai/enterprise_rag_platform) | Governed RAG reference architecture |
 
 Built by [Venkata Peetla](https://github.com/vpeetla-ai) — [venkat-ai.com](https://venkat-ai.com)
 

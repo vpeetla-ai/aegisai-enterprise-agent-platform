@@ -26,7 +26,7 @@
 │         │                 │                          │                        │
 │         └─────────────────┴──────────────────────────┘                        │
 │                                    │                                          │
-│                         ALL side-effecting tool calls                           │
+│                         Side-effecting tool calls (gateway-integrated workloads) │
 │                                    ▼                                          │
 │  ┌─────────────────────────────────────────────────────────────────────────┐ │
 │  │                         AI GATEWAY (runtime intercept)                   │ │
@@ -64,8 +64,11 @@ Notifications: Slack webhooks + Telegram bot for pipeline outputs
 | **Application** | `services/api/.../application` | LangGraph workflows, connectors, RAG, broker |
 | **Domain** | `services/api/.../domain` | Proposals, decisions, risk, audit events |
 | **Infrastructure** | `services/api/.../infrastructure` | Persistence, notifications |
-| **Policy** | `platform/policy/aegisai.rego` | OPA rules (deploy = HITL, financial thresholds) |
+| **Policy** | `platform/policy/aegisai.rego` | OPA rules (optional; default is builtin policy simulator) |
 | **Database** | `platform/database/*.sql` | Postgres schema (Supabase in prod) |
+| **Observability** | Langfuse + LangSmith env | Traces per orchestrator run (parallel, non-authoritative) |
+
+> **North star vs today:** The diagram above is the target. **Website Build** and **SDK-registered agents** use the gateway today. Content and Stock cron orchestrators run managed pipelines without per-tool gateway intercept — see [Gateway coverage](#gateway-coverage-honest-matrix) below.
 
 ---
 
@@ -85,19 +88,29 @@ Notifications: Slack webhooks + Telegram bot for pipeline outputs
 
 ### SDKs
 
-- Python: `sdk/python/aegisai_gateway/`
-- TypeScript: `apps/web/lib/gateway/client.ts`
+- **Python (installable):** `sdk/python/aegisai_gateway/`
+- **TypeScript (in-repo reference):** `apps/web/lib/gateway/client.ts` — not published to npm
 
-### Deploy tools — always HITL
+### Deploy tools — HITL at runtime
 
-| Tool | Agent | Connector |
+| Tool | Agent | Connector | Runtime HITL |
+| --- | --- | --- | --- |
+| `deploy.vercel_release` | `agent-fe-builder`, `agent-review-deploy` | Vercel API | ✅ `approval_required` |
+| `deploy.render_release` | `agent-be-builder`, `agent-review-deploy` | Render API | ✅ `approval_required` |
+| `github.create_pull_request` | `agent-review-deploy` | GitHub API | ✅ `approval_required` |
+| `github.push_files` | `agent-fe-builder` | GitHub API | 🟡 Targeted — wire through gateway (see roadmap) |
+
+Policy (`aegisai.rego`) and the builtin gateway simulator **force `approval_required`** for `deploy_*` action types. OPA is optional when `OPA_URL` is set.
+
+### Gateway coverage (honest matrix)
+
+| Workload | Gateway intercept | Notes |
 | --- | --- | --- |
-| `deploy.vercel_release` | `agent-fe-builder`, `agent-review-deploy` | Vercel API |
-| `deploy.render_release` | `agent-be-builder`, `agent-review-deploy` | Render API |
-| `github.push_files` | `agent-fe-builder` | GitHub API |
-| `github.create_pull_request` | `agent-review-deploy` | GitHub API |
-
-Policy (`aegisai.rego`) and runtime gateway **force `approval_required`** for all `deploy_*` action types.
+| **Website Build** | ✅ Yes | Deploy tools via `gateway_decision` in LangGraph |
+| **Python / TS SDK agents** | ✅ Yes | `POST /api/gateway/tool-request` |
+| **Content pipeline cron** | ❌ No (yet) | Managed run → Slack/Telegram; no per-tool intercept |
+| **Stock research cron** | ❌ No (yet) | Same pattern as content |
+| **VAP (venkat-ai-platform)** | 🟡 Planned | Documented in [docs/ECOSYSTEM.md](../../docs/ECOSYSTEM.md) |
 
 ---
 
@@ -145,7 +158,7 @@ Register → Shadow → Pilot → Approved → (Restricted | Revoked | Deprecate
 - `PATCH /api/agent-registry/lifecycle/{agent_id}/status` — promote/restrict/revoke
 - `POST /api/platform/onboard-agent` — readiness checklist
 
-**Registry storage:** in-memory (dev); Postgres `agent_registry` table for production migration.
+**Registry storage:** in-memory today. Postgres `agent_registry` table is planned — migration stub in `platform/database/postgres-migration.sql` does not yet include registry persistence.
 
 ---
 
@@ -257,12 +270,24 @@ Design system: `apps/web/app/aegis-ui.css`
 
 ---
 
-## 12. Evolution Roadmap
+## 12. Ecosystem alignment
 
-1. **Now:** LangGraph website pipeline, real connector stubs (env-gated), HITL on deploy, Slack/Telegram delivery
-2. **Next:** Postgres-backed registry, persistent orchestrator run history, full GitHub PR flow
-3. **Later:** Swap Gemini → enterprise LLM; MCP servers for Figma/GitHub; multi-tenant onboarding
+See **[docs/ECOSYSTEM.md](../../docs/ECOSYSTEM.md)** for how AegisAI pairs with:
+
+- **[venkat-ai-platform](https://github.com/vpeetla-ai/venkat-ai-platform)** — orchestration layer (Chief, workers, Critic)
+- **[ai-content-factory](https://github.com/vpeetla-ai/ai-content-factory)** — application pipeline with its own publish HITL
+- **[enterprise_rag_platform](https://github.com/vpeetla-ai/enterprise_rag_platform)** — governed RAG reference
+
+**Integration pattern:** register external orchestrators as `agent_id`, route side-effecting tools through `POST /api/gateway/tool-request`, consume HITL decisions in the control plane UI.
 
 ---
 
-*Last updated: 2026-06-24 — aligns with control plane UI, 3 orchestrators, gateway-first governance.*
+## 13. Evolution Roadmap
+
+1. **Now:** LangGraph website pipeline, gateway on deploy tools, Slack/Telegram delivery, in-memory registry
+2. **Next:** Postgres-backed registry, gateway intercept for Content/Stock tool calls, `github.push_files` through gateway, VAP SDK wiring
+3. **Later:** Swap Gemini → enterprise LLM; MCP servers; multi-tenant onboarding
+
+---
+
+*Last updated: 2026-06-28 — honest gateway matrix, ecosystem map, registry status.*
