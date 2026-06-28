@@ -98,7 +98,7 @@ Notifications: Slack webhooks + Telegram bot for pipeline outputs
 | `deploy.vercel_release` | `agent-fe-builder`, `agent-review-deploy` | Vercel API | ✅ `approval_required` |
 | `deploy.render_release` | `agent-be-builder`, `agent-review-deploy` | Render API | ✅ `approval_required` |
 | `github.create_pull_request` | `agent-review-deploy` | GitHub API | ✅ `approval_required` |
-| `github.push_files` | `agent-fe-builder` | GitHub API | 🟡 Targeted — wire through gateway (see roadmap) |
+| `github.push_files` | `agent-fe-builder` | GitHub API | ✅ `approval_required` |
 
 Policy (`aegisai.rego`) and the builtin gateway simulator **force `approval_required`** for `deploy_*` action types. OPA is optional when `OPA_URL` is set.
 
@@ -110,7 +110,7 @@ Policy (`aegisai.rego`) and the builtin gateway simulator **force `approval_requ
 | **Python / TS SDK agents** | ✅ Yes | `POST /api/gateway/tool-request` |
 | **Content pipeline cron** | ❌ No (yet) | Managed run → Slack/Telegram; no per-tool intercept |
 | **Stock research cron** | ❌ No (yet) | Same pattern as content |
-| **VAP (venkat-ai-platform)** | 🟡 Planned | Documented in [docs/ECOSYSTEM.md](../../docs/ECOSYSTEM.md) |
+| **VAP (venkat-ai-platform)** | ✅ Yes | `notify.*` tools when `AEGISAI_API_BASE_URL` set on VAP |
 
 ---
 
@@ -158,7 +158,21 @@ Register → Shadow → Pilot → Approved → (Restricted | Revoked | Deprecate
 - `PATCH /api/agent-registry/lifecycle/{agent_id}/status` — promote/restrict/revoke
 - `POST /api/platform/onboard-agent` — readiness checklist
 
-**Registry storage:** in-memory today. Postgres `agent_registry` table is planned — migration stub in `platform/database/postgres-migration.sql` does not yet include registry persistence.
+**Registry storage:** in-memory today; gateway enforces lifecycle status, tool allowlists, shadow/restricted → HITL. Postgres `agent_registry` table migration planned.
+
+### External orchestrator integration (VAP)
+
+```mermaid
+flowchart LR
+    VAP["venkat-ai-platform<br/>orchestrator notify"] --> GW["POST /api/gateway/tool-request"]
+    GW --> REG["Agent registry<br/>venkat-ai-platform"]
+    GW --> RBAC["Principal vap-orchestrator"]
+    GW --> POL["Policy + HITL"]
+    POL -->|allow| TOK["Execution token"]
+    TOK --> DEL["Slack · Telegram · WhatsApp"]
+```
+
+Pre-seeded fleet agent: `venkat-ai-platform` (pilot). Tools: `notify.slack`, `notify.telegram`, `notify.whatsapp`.
 
 ---
 
