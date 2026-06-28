@@ -71,6 +71,19 @@ class IdentityRBACService:
             roles=("workflow_owner", "execution_broker"),
             allowed_tools=("mission.ship_artifact",),
         ),
+        "content-factory-orchestrator": Principal(
+            principal_id="content-factory-orchestrator",
+            tenant_id="bank-demo",
+            roles=("workflow_owner", "execution_broker"),
+            allowed_tools=(
+                "rag.search_policy_memory",
+                "publish.linkedin",
+                "publish.x",
+                "publish.medium",
+                "publish.substack",
+                "publish.instagram",
+            ),
+        ),
     }
 
     def principal(self, principal_id: str) -> Principal | None:

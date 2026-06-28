@@ -126,3 +126,21 @@ class AuditEvent:
     previous_hash: str
     event_hash: str
     occurred_at: str
+
+
+@dataclass(frozen=True)
+class RegisteredAgent:
+    agent_id: str
+    name: str
+    owner: str
+    business_domain: str
+    risk_tier: str
+    autonomy_level: int
+    status: str
+    model_provider: str
+    allowed_tools: tuple[str, ...]
+    data_classes: tuple[str, ...]
+    last_run_at: str
+    monthly_cost_usd: float
+    open_incidents: int
+    value_metric: str

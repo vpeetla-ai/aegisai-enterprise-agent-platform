@@ -305,6 +305,20 @@ class PlatformControlPlaneService:
                 "decision": "human_approval",
                 "explanation": "Human-gated mission ship requires reviewer approval.",
             }
+        publish_tools = {
+            "publish.linkedin",
+            "publish.x",
+            "publish.medium",
+            "publish.substack",
+            "publish.instagram",
+        }
+        if request.tool_name in publish_tools:
+            gateway_decision = "approval_required"
+            simulation = {
+                **simulation,
+                "decision": "human_approval",
+                "explanation": "Social publish side effects require human approval.",
+            }
         steps = ["authorize_identity", "score_risk", "evaluate_policy"]
         if gateway_decision == "allow":
             steps.extend(["issue_execution_token", "record_audit_event"])

@@ -27,6 +27,7 @@ from aegisai.application.orchestration import (
 from aegisai.application.tools import enterprise_tool_registry
 from aegisai.domain import DataClassification, ExecutionCommand, ExecutionResult
 from aegisai.infrastructure.persistence import build_control_plane_store
+from aegisai.infrastructure.persistence.factory import build_agent_registry_service
 from aegisai.interfaces.http.auth import AuthRequired, ReviewerAuthRequired, auth_posture
 from aegisai.interfaces.http.enforcement import pilot_mode, require_execution_token
 from aegisai.product.gateway_metrics import GatewayMetricsService
@@ -242,7 +243,7 @@ execution_broker = ApprovedActionExecutionBroker()
 http_connector_manager = HttpConnectorManager(execution_broker.connector_registry)
 http_connector_manager.bootstrap()
 execution_token_service = ExecutionTokenService()
-agent_registry_service = AgentRegistryService()
+agent_registry_service = build_agent_registry_service()
 policy_simulator_service = PolicySimulatorService()
 identity_service = IdentityRBACService()
 kill_switch_service = KillSwitchService()

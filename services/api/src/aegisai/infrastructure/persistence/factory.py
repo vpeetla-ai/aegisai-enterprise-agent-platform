@@ -62,3 +62,18 @@ def build_control_plane_store() -> ControlPlaneStore:
         return PostgresControlPlaneStore(database_url)
     db_path = os.getenv("AEGISAI_CONTROL_PLANE_DB_PATH", ":memory:")
     return SQLiteControlPlaneStore(Path(db_path) if db_path != ":memory:" else ":memory:")
+
+
+def build_agent_registry_service() -> "AgentRegistryService":
+    from aegisai.product.agent_registry import AgentRegistryService
+
+    backend = os.getenv("AEGISAI_DB_BACKEND", "sqlite").lower()
+    if backend == "postgres":
+        database_url = _postgres_database_url()
+        if database_url:
+            from .agent_registry_store import PostgresAgentRegistryStore
+
+            return AgentRegistryService(PostgresAgentRegistryStore(database_url))
+    from .agent_registry_store import InMemoryAgentRegistryStore
+
+    return AgentRegistryService(InMemoryAgentRegistryStore())

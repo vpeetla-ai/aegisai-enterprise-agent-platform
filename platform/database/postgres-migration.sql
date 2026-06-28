@@ -103,3 +103,25 @@ CREATE INDEX IF NOT EXISTS idx_cases_tenant ON cases(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_audit_tenant_time ON audit_events(tenant_id, occurred_at ASC);
 CREATE INDEX IF NOT EXISTS idx_proposals_tenant ON action_proposals(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_traces_case ON agent_traces(case_id, tenant_id);
+
+CREATE TABLE IF NOT EXISTS agent_registry (
+  agent_id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL DEFAULT 'bank-demo',
+  name TEXT NOT NULL,
+  owner TEXT NOT NULL,
+  business_domain TEXT NOT NULL,
+  risk_tier TEXT NOT NULL,
+  autonomy_level INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  model_provider TEXT NOT NULL,
+  allowed_tools TEXT NOT NULL,
+  data_classes TEXT NOT NULL,
+  last_run_at TEXT NOT NULL DEFAULT 'not_run_yet',
+  monthly_cost_usd DOUBLE PRECISION NOT NULL DEFAULT 0,
+  open_incidents INTEGER NOT NULL DEFAULT 0,
+  value_metric TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_registry_tenant ON agent_registry(tenant_id);
