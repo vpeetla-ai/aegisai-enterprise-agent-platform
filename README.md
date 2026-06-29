@@ -1,5 +1,17 @@
 # AegisAI — Enterprise Agent Governance Control Plane
 
+
+## Agent skills (Cursor + Codex)
+
+Org skills: [vpeetla-ai-skills](https://github.com/vpeetla-ai/vpeetla-ai-skills). This repo includes `.cursor/skills/`, `AGENTS.md`, and `CONTEXT.md`.
+
+```bash
+git clone https://github.com/vpeetla-ai/vpeetla-ai-skills.git
+./vpeetla-ai-skills/scripts/install.sh --cursor --codex --project .
+```
+
+---
+
 [![Live UI](https://img.shields.io/badge/demo-Vercel-brightgreen)](https://aegisai-enterprise-agent-platform.vercel.app)
 [![API](https://img.shields.io/badge/API-Render-blue)](https://aegisai-api.onrender.com/docs)
 [![Stack](https://img.shields.io/badge/stack-free--tier%20ready-purple)]()
