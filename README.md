@@ -3,7 +3,7 @@
 
 
 <!-- vpeetla-tech-stack:start -->
-[![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square)]() [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square)]() [![LangGraph](https://img.shields.io/badge/LangGraph-9333EA?style=flat-square)]() [![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat-square)]() [![OPA](https://img.shields.io/badge/OPA-7D4CDB?style=flat-square)]() [![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?style=flat-square)]() [![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat-square)]() [![Render](https://img.shields.io/badge/Render-46E3B7?style=flat-square)]()
+[![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square)]() [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square)]() [![LangGraph](https://img.shields.io/badge/LangGraph-9333EA?style=flat-square)]() [![Langfuse](https://img.shields.io/badge/Langfuse-6366F1?style=flat-square)]() [![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat-square)]() [![OPA](https://img.shields.io/badge/OPA-7D4CDB?style=flat-square)]() [![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?style=flat-square)]() [![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat-square)]() [![Render](https://img.shields.io/badge/Render-46E3B7?style=flat-square)]()
 <!-- vpeetla-tech-stack:end -->
 ## Agent skills (Cursor + Codex)
 
@@ -59,6 +59,7 @@ AegisAI is a **governance control plane**:
 | VAP notify gateway | ✅ Wired (`aegis_gateway.py`) |
 | ai-content-factory publish | 🟡 Planned |
 | Cron orchestrator notify | 🟡 Planned |
+| Langfuse + LangSmith traces | ✅ | Optional `LANGFUSE_*` / `LANGSMITH_*` — `GET /api/observability/status` |
 
 **Free tier:** manual Render web service + GitHub Actions cron ([DEPLOYMENT-AND-SECRETS.md](platform/architecture/DEPLOYMENT-AND-SECRETS.md)). **`render.yaml` Blueprint** is optional paid (~$9/mo).
 

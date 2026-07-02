@@ -80,6 +80,8 @@ AEGISAI_GATEWAY_FAIL_OPEN=true   # local dev without AegisAI running
 
 Both repos use **Langfuse** (+ AegisAI also uses LangSmith). Target: shared `trace_id` / `workflow_run_id` in audit events for cross-repo lineage.
 
+Org canonical pattern: [TRACE_LINKED_OBSERVABILITY](https://github.com/vpeetla-ai/ai-architecture-portfolio/blob/main/docs/TRACE_LINKED_OBSERVABILITY.md).
+
 ---
 
 ## Reading order for architects
