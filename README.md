@@ -122,7 +122,16 @@ flowchart TB
     UI --- Gateway
     MON -.-> MON_UI
     GOV -.-> GOV_UI
+
+    subgraph Obs["Trace-linked LLMOps (export adapters)"]
+        LF["Langfuse<br/>LANGFUSE_*"]
+        LS["LangSmith<br/>LANGSMITH_*"]
+    end
+    Fleet -.->|"spans + eval scores"| Obs
+    GW -.->|"audit stays in Postgres"| MON
 ```
+
+Note: **Governed audit, HITL, and policy state remain in AegisAI** — Langfuse/LangSmith are trace/eval export adapters (`GET /api/observability/status`).
 
 ### Layered backend (clean architecture)
 
@@ -152,7 +161,7 @@ flowchart LR
         NTF["Slack · Telegram"]
     end
     subgraph Obs
-        LF["Langfuse · LangSmith"]
+        LF["Langfuse · LangSmith<br/>trace-linked export"]
     end
 
     WEB --> API --> Product --> Application --> Domain --> Infra
