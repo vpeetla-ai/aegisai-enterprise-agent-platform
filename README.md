@@ -61,6 +61,8 @@ AegisAI is a **governance control plane**:
 | Cron orchestrator notify | 🟡 Planned |
 | Langfuse + LangSmith traces | ✅ | Optional `LANGFUSE_*` / `LANGSMITH_*` — `GET /api/observability/status` |
 | Real FinOps metering + budget enforcement | ✅ Website Build's 4 LLM-calling agents (`agent-requirements-analyst`, `agent-ui-design-analyst`, `agent-fe-builder`, `agent-be-builder`) via [agent-finops](https://github.com/vpeetla-ai/agent-finops) — a budget breach trips the real kill-switch. `ai_content_pipeline`/`stock_research` agents not wired yet. See [ADR-0004](adr/0004-real-finops-metering-website-build.md) |
+| MCP — gate inbound (agent → external MCP server) | ✅ `McpGovernanceProxy` routes every outbound MCP tool call through policy/HITL/kill-switch before it reaches `filesystem`/`github`/`postgres`/`slack`/`custom_enterprise_mcp` |
+| MCP — expose outbound (external client → AegisAI) | ✅ `interfaces/mcp/server.py` exposes `list_registered_agents`, `check_agent_budget`, `get_kill_switch_status`, `run_website_build` as real MCP tools, calling the same governed singletons the HTTP API uses — see [ADR-0005](adr/0005-mcp-tool-exposure.md) |
 
 **Free tier:** manual Render web service + GitHub Actions cron ([DEPLOYMENT-AND-SECRETS.md](platform/architecture/DEPLOYMENT-AND-SECRETS.md)). **`render.yaml` Blueprint** is optional paid (~$9/mo).
 
@@ -228,6 +230,18 @@ sequenceDiagram
 ```bash
 make verify
 ```
+
+### MCP server (governed tools for Claude Code, Cursor, Claude Desktop)
+
+```bash
+claude mcp add aegisai-governance -- \
+  env PYTHONPATH=services/api/src uv run python -m aegisai.interfaces.mcp.server
+```
+
+Or point any MCP client at `services/api/src/aegisai/interfaces/mcp/server.py` directly
+(stdio transport). Every tool call — including `run_website_build` — executes against
+the same governed singletons the HTTP API uses, so real FinOps metering and kill-switch
+enforcement apply identically. See [ADR-0005](adr/0005-mcp-tool-exposure.md).
 
 ---
 
