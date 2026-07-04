@@ -53,9 +53,9 @@ AegisAI is a **governance control plane**:
 | Python gateway SDK (`sdk/python/`) | ✅ |
 | TypeScript reference client (`apps/web/lib/gateway/`) | ✅ In-repo reference (not npm package) |
 | Control plane UI (dashboard, monitor, governance) | ✅ |
-| Content + Stock cron orchestrators | ✅ Managed runs (no per-tool gateway intercept yet) |
-| Agent registry Postgres persistence | 🟡 In-memory today; gateway enforces lifecycle + allowlists |
-| OPA policy engine | 🟡 Optional — default is builtin policy simulator |
+| Content + Stock cron orchestrators | ✅ Managed runs (no per-tool gateway intercept yet); now require `AuthRequired` like every other mutating route — see [ADR-0003](adr/0003-orchestrator-auth-gate.md) |
+| Agent registry Postgres persistence | ✅ `AEGISAI_DB_BACKEND=postgres` — SQLite (dev default) or Postgres via `factory.py` |
+| OPA policy engine | 🟡 Optional — default is builtin policy simulator; **fails open** (advisory, not a hard block) when unavailable |
 | VAP notify gateway | ✅ Wired (`aegis_gateway.py`) |
 | ai-content-factory publish | 🟡 Planned |
 | Cron orchestrator notify | 🟡 Planned |

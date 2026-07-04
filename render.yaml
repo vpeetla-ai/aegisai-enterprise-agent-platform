@@ -60,7 +60,7 @@ services:
     runtime: docker
     dockerContext: .
     dockerfilePath: services/api/Dockerfile
-    dockerCommand: python3 -c "import httpx; httpx.post('https://aegisai-api.onrender.com/api/orchestrators/ai-content/run', timeout=120)"
+    dockerCommand: python3 -c "import httpx; httpx.post('https://aegisai-api.onrender.com/api/orchestrators/ai-content/run', headers={'X-AegisAI-Principal': 'render-cron'}, timeout=120)"
 
   - type: cron
     name: aegisai-stock-research
@@ -68,4 +68,4 @@ services:
     runtime: docker
     dockerContext: .
     dockerfilePath: services/api/Dockerfile
-    dockerCommand: python3 -c "import httpx; httpx.post('https://aegisai-api.onrender.com/api/orchestrators/stock-research/run', timeout=120)"
+    dockerCommand: python3 -c "import httpx; httpx.post('https://aegisai-api.onrender.com/api/orchestrators/stock-research/run', headers={'X-AegisAI-Principal': 'render-cron'}, timeout=120)"

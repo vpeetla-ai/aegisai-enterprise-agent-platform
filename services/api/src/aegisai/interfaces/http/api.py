@@ -1197,7 +1197,7 @@ def orchestrators_registry() -> dict[str, object]:
 
 
 @app.post("/api/orchestrators/ai-content/run")
-def run_ai_content_pipeline(tenant_id: str = "bank-demo") -> dict[str, object]:
+def run_ai_content_pipeline(auth: AuthRequired, tenant_id: str = "bank-demo") -> dict[str, object]:
     return ai_content_orchestrator.run(tenant_id)
 
 
@@ -1207,7 +1207,7 @@ def list_ai_content_runs(limit: int = 10) -> dict[str, object]:
 
 
 @app.post("/api/orchestrators/stock-research/run")
-def run_stock_research(tenant_id: str = "bank-demo") -> dict[str, object]:
+def run_stock_research(auth: AuthRequired, tenant_id: str = "bank-demo") -> dict[str, object]:
     return stock_research_orchestrator.run(tenant_id)
 
 
@@ -1218,6 +1218,7 @@ def list_stock_research_runs(limit: int = 10) -> dict[str, object]:
 
 @app.post("/api/orchestrators/website-build/run")
 def run_website_build(
+    auth: AuthRequired,
     tenant_id: str = "bank-demo",
     requirement: str | None = None,
 ) -> dict[str, object]:
