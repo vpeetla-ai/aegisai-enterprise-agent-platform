@@ -20,6 +20,8 @@ class AgentRegistryStore(Protocol):
 
     def update_status(self, agent_id: str, status: str) -> RegisteredAgent | None: ...
 
+    def update_cost(self, agent_id: str, monthly_cost_usd: float) -> RegisteredAgent | None: ...
+
     def count(self) -> int: ...
 
 
@@ -59,6 +61,31 @@ class InMemoryAgentRegistryStore:
             monthly_cost_usd=agent.monthly_cost_usd,
             open_incidents=agent.open_incidents,
             value_metric=agent.value_metric,
+            budget_usd=agent.budget_usd,
+        )
+        self._agents[agent_id] = updated
+        return updated
+
+    def update_cost(self, agent_id: str, monthly_cost_usd: float) -> RegisteredAgent | None:
+        agent = self._agents.get(agent_id)
+        if agent is None:
+            return None
+        updated = RegisteredAgent(
+            agent_id=agent.agent_id,
+            name=agent.name,
+            owner=agent.owner,
+            business_domain=agent.business_domain,
+            risk_tier=agent.risk_tier,
+            autonomy_level=agent.autonomy_level,
+            status=agent.status,
+            model_provider=agent.model_provider,
+            allowed_tools=agent.allowed_tools,
+            data_classes=agent.data_classes,
+            last_run_at=agent.last_run_at,
+            monthly_cost_usd=monthly_cost_usd,
+            open_incidents=agent.open_incidents,
+            value_metric=agent.value_metric,
+            budget_usd=agent.budget_usd,
         )
         self._agents[agent_id] = updated
         return updated
@@ -123,6 +150,7 @@ class PostgresAgentRegistryStore:
             monthly_cost_usd,
             open_incidents,
             value_metric,
+            budget_usd,
         ) = row
         return RegisteredAgent(
             agent_id=agent_id,
@@ -139,6 +167,7 @@ class PostgresAgentRegistryStore:
             monthly_cost_usd=float(monthly_cost_usd),
             open_incidents=int(open_incidents),
             value_metric=value_metric,
+            budget_usd=float(budget_usd) if budget_usd is not None else None,
         )
 
     def list_agents(self) -> tuple[RegisteredAgent, ...]:
@@ -148,7 +177,7 @@ class PostgresAgentRegistryStore:
                     """
                     SELECT agent_id, tenant_id, name, owner, business_domain, risk_tier,
                            autonomy_level, status, model_provider, allowed_tools, data_classes,
-                           last_run_at, monthly_cost_usd, open_incidents, value_metric
+                           last_run_at, monthly_cost_usd, open_incidents, value_metric, budget_usd
                     FROM agent_registry
                     ORDER BY agent_id
                     """
@@ -163,7 +192,7 @@ class PostgresAgentRegistryStore:
                     """
                     SELECT agent_id, tenant_id, name, owner, business_domain, risk_tier,
                            autonomy_level, status, model_provider, allowed_tools, data_classes,
-                           last_run_at, monthly_cost_usd, open_incidents, value_metric
+                           last_run_at, monthly_cost_usd, open_incidents, value_metric, budget_usd
                     FROM agent_registry WHERE agent_id = %s
                     """,
                     (agent_id,),
@@ -179,9 +208,9 @@ class PostgresAgentRegistryStore:
                     INSERT INTO agent_registry (
                       agent_id, tenant_id, name, owner, business_domain, risk_tier,
                       autonomy_level, status, model_provider, allowed_tools, data_classes,
-                      last_run_at, monthly_cost_usd, open_incidents, value_metric, updated_at
+                      last_run_at, monthly_cost_usd, open_incidents, value_metric, budget_usd, updated_at
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
                     ON CONFLICT (agent_id) DO UPDATE SET
                       tenant_id = EXCLUDED.tenant_id,
                       name = EXCLUDED.name,
@@ -197,6 +226,7 @@ class PostgresAgentRegistryStore:
                       monthly_cost_usd = EXCLUDED.monthly_cost_usd,
                       open_incidents = EXCLUDED.open_incidents,
                       value_metric = EXCLUDED.value_metric,
+                      budget_usd = EXCLUDED.budget_usd,
                       updated_at = NOW()
                     """,
                     (
@@ -215,6 +245,7 @@ class PostgresAgentRegistryStore:
                         agent.monthly_cost_usd,
                         agent.open_incidents,
                         agent.value_metric,
+                        agent.budget_usd,
                     ),
                 )
             connection.commit()
@@ -239,6 +270,30 @@ class PostgresAgentRegistryStore:
             monthly_cost_usd=agent.monthly_cost_usd,
             open_incidents=agent.open_incidents,
             value_metric=agent.value_metric,
+            budget_usd=agent.budget_usd,
+        )
+        return self.upsert_agent(updated)
+
+    def update_cost(self, agent_id: str, monthly_cost_usd: float) -> RegisteredAgent | None:
+        agent = self.get_agent(agent_id)
+        if agent is None:
+            return None
+        updated = RegisteredAgent(
+            agent_id=agent.agent_id,
+            name=agent.name,
+            owner=agent.owner,
+            business_domain=agent.business_domain,
+            risk_tier=agent.risk_tier,
+            autonomy_level=agent.autonomy_level,
+            status=agent.status,
+            model_provider=agent.model_provider,
+            allowed_tools=agent.allowed_tools,
+            data_classes=agent.data_classes,
+            last_run_at=agent.last_run_at,
+            monthly_cost_usd=monthly_cost_usd,
+            open_incidents=agent.open_incidents,
+            value_metric=agent.value_metric,
+            budget_usd=agent.budget_usd,
         )
         return self.upsert_agent(updated)
 

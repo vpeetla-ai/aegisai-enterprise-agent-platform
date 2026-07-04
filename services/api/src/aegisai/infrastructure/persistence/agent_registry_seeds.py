@@ -86,6 +86,7 @@ def seed_agents() -> tuple[RegisteredAgent, ...]:
             monthly_cost_usd=28.0,
             open_incidents=0,
             value_metric="Parses build requirements into acceptance criteria",
+            budget_usd=10.0,
         ),
         RegisteredAgent(
             agent_id="agent-ui-design-analyst",
@@ -102,6 +103,7 @@ def seed_agents() -> tuple[RegisteredAgent, ...]:
             monthly_cost_usd=32.0,
             open_incidents=0,
             value_metric="Produces design specs without writing code",
+            budget_usd=15.0,
         ),
         RegisteredAgent(
             agent_id="agent-fe-builder",
@@ -118,6 +120,7 @@ def seed_agents() -> tuple[RegisteredAgent, ...]:
             monthly_cost_usd=54.0,
             open_incidents=0,
             value_metric="Implements UI via gateway-governed deploy tools",
+            budget_usd=20.0,
         ),
         RegisteredAgent(
             agent_id="agent-be-builder",
@@ -134,6 +137,7 @@ def seed_agents() -> tuple[RegisteredAgent, ...]:
             monthly_cost_usd=58.0,
             open_incidents=0,
             value_metric="Implements APIs with policy-bound side effects",
+            budget_usd=20.0,
         ),
         RegisteredAgent(
             agent_id="agent-review-deploy",
@@ -154,6 +158,7 @@ def seed_agents() -> tuple[RegisteredAgent, ...]:
             monthly_cost_usd=44.0,
             open_incidents=0,
             value_metric="Code review gate before staging/production deploy",
+            budget_usd=15.0,
         ),
         RegisteredAgent(
             agent_id="venkat-ai-platform",

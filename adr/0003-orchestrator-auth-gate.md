@@ -63,10 +63,11 @@ stating explicitly rather than leaving implicit.
   future ADR, not assumed here.
 
 ### Follow-ups
-- ADR-0004 (proposed): decide whether `AEGISAI_ENFORCE_AUTH=true` should be the default for any
+- ADR-0004 (done): wire real per-call token/cost metering into the FinOps module — see
+  [ADR-0004](./0004-real-finops-metering-website-build.md).
+- ADR-0005 (proposed): decide whether `AEGISAI_ENFORCE_AUTH=true` should be the default for any
   deployment reachable from the public internet, and update the frontend to send real
   credentials rather than dev headers.
-- ADR-0005 (proposed): wire real per-call token/cost metering into the FinOps module.
 - ADR-0006 (proposed): make OPA policy decisions fail-closed for critical actions.
 
 ## References

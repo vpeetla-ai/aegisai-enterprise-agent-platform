@@ -60,6 +60,7 @@ AegisAI is a **governance control plane**:
 | ai-content-factory publish | 🟡 Planned |
 | Cron orchestrator notify | 🟡 Planned |
 | Langfuse + LangSmith traces | ✅ | Optional `LANGFUSE_*` / `LANGSMITH_*` — `GET /api/observability/status` |
+| Real FinOps metering + budget enforcement | ✅ Website Build's 4 LLM-calling agents (`agent-requirements-analyst`, `agent-ui-design-analyst`, `agent-fe-builder`, `agent-be-builder`) via [agent-finops](https://github.com/vpeetla-ai/agent-finops) — a budget breach trips the real kill-switch. `ai_content_pipeline`/`stock_research` agents not wired yet. See [ADR-0004](adr/0004-real-finops-metering-website-build.md) |
 
 **Free tier:** manual Render web service + GitHub Actions cron ([DEPLOYMENT-AND-SECRETS.md](platform/architecture/DEPLOYMENT-AND-SECRETS.md)). **`render.yaml` Blueprint** is optional paid (~$9/mo).
 

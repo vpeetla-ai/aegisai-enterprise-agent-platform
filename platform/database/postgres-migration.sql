@@ -120,8 +120,13 @@ CREATE TABLE IF NOT EXISTS agent_registry (
   monthly_cost_usd DOUBLE PRECISION NOT NULL DEFAULT 0,
   open_incidents INTEGER NOT NULL DEFAULT 0,
   value_metric TEXT NOT NULL DEFAULT '',
+  budget_usd DOUBLE PRECISION,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- CREATE TABLE IF NOT EXISTS above doesn't add columns to an already-existing table —
+-- this makes budget_usd land on deployments that created agent_registry before it existed.
+ALTER TABLE agent_registry ADD COLUMN IF NOT EXISTS budget_usd DOUBLE PRECISION;
 
 CREATE INDEX IF NOT EXISTS idx_agent_registry_tenant ON agent_registry(tenant_id);

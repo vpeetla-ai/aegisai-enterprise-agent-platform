@@ -53,6 +53,10 @@ services:
         sync: false
       - key: LANGSMITH_API_KEY
         sync: false
+      - key: AGENTFINOPS_API_URL
+        sync: false
+      - key: AGENTFINOPS_API_KEY
+        sync: false
 
   - type: cron
     name: aegisai-content-pipeline

@@ -144,3 +144,4 @@ class RegisteredAgent:
     monthly_cost_usd: float
     open_incidents: int
     value_metric: str
+    budget_usd: float | None = None

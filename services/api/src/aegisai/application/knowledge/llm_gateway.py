@@ -13,6 +13,8 @@ class LLMResponse:
     model: str
     content: str
     confidence: float
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
 
 
 class LLMGateway:
@@ -99,11 +101,14 @@ class LLMGateway:
             )
 
         data = response.json()
+        usage = data.get("usage") or {}
         return LLMResponse(
             provider="openai",
             model=self.model,
             content=self._extract_openai_text(data),
             confidence=0.9,
+            prompt_tokens=int(usage.get("input_tokens") or 0),
+            completion_tokens=int(usage.get("output_tokens") or 0),
         )
 
     @staticmethod
@@ -155,7 +160,15 @@ class LLMGateway:
                     .get("parts", [{}])[0]
                     .get("text", "")
                 )
-                return LLMResponse(provider="gemini", model=model, content=text or "{}", confidence=0.88)
+                usage = data.get("usageMetadata") or {}
+                return LLMResponse(
+                    provider="gemini",
+                    model=model,
+                    content=text or "{}",
+                    confidence=0.88,
+                    prompt_tokens=int(usage.get("promptTokenCount") or 0),
+                    completion_tokens=int(usage.get("candidatesTokenCount") or 0),
+                )
         except (httpx.HTTPError, IndexError, KeyError) as exc:
             return LLMResponse(
                 provider="gemini",

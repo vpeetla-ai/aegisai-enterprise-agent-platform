@@ -55,6 +55,14 @@ class AgentRegistryService:
     def update_agent_status(self, agent_id: str, status: str) -> RegisteredAgent | None:
         return self._store.update_status(agent_id, status)
 
+    def record_usage(self, agent_id: str, cost_usd: float) -> RegisteredAgent | None:
+        """Write-through real cost from agent-finops into monthly_cost_usd, replacing
+        whatever seed value was there — see ADR-011 (agent-finops)."""
+        agent = self.get_agent(agent_id)
+        if agent is None:
+            return None
+        return self._store.update_cost(agent_id, agent.monthly_cost_usd + cost_usd)
+
     def lifecycle(self) -> dict[str, object]:
         agents = self.list_agents()
         return {
@@ -87,6 +95,7 @@ class AgentRegistryService:
             "monthly_cost_usd": agent.monthly_cost_usd,
             "open_incidents": agent.open_incidents,
             "value_metric": agent.value_metric,
+            "budget_usd": agent.budget_usd,
         }
 
     def summary(self) -> dict[str, object]:

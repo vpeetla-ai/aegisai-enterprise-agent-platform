@@ -15,6 +15,8 @@ from datetime import UTC, datetime
 from typing import Any, TypedDict
 from uuid import uuid4
 
+from agent_finops_client import FinOpsClient
+
 from aegisai.application.execution.connectors.deploy import (
     GitHubConnector,
     RenderDeployConnector,
@@ -23,6 +25,18 @@ from aegisai.application.execution.connectors.deploy import (
 from aegisai.application.execution.connectors.registry import ConnectorExecutionContext
 from aegisai.application.knowledge.llm_gateway import LLMGateway
 from aegisai.observability.service import ObservabilityService
+from aegisai.product.agent_registry import AgentRegistryService
+from aegisai.product.kill_switch import KillSwitchService
+
+# Only these 4 nodes call an LLM — review_deploy is a review/deploy gate with no
+# completion to meter. Real per-call token usage is recorded against these
+# agent-finops scopes, write-through to the local registry's monthly_cost_usd.
+NODE_TO_AGENT_ID = {
+    "requirements": "agent-requirements-analyst",
+    "ui_design": "agent-ui-design-analyst",
+    "fe_impl": "agent-fe-builder",
+    "be_impl": "agent-be-builder",
+}
 
 
 class WebsiteGraphState(TypedDict, total=False):
@@ -71,14 +85,48 @@ class WebsiteBuildLangGraph:
         llm: LLMGateway | None = None,
         gateway_fn: GatewayFn | None = None,
         observability: ObservabilityService | None = None,
+        finops_client: FinOpsClient | None = None,
+        agent_registry: AgentRegistryService | None = None,
+        kill_switch_service: KillSwitchService | None = None,
     ) -> None:
         self._llm = llm or LLMGateway(provider=os.getenv("AEGISAI_LLM_PROVIDER", "gemini"))
         self._gateway_fn = gateway_fn
         self._observability = observability
+        self._finops_client = finops_client or FinOpsClient(
+            base_url=os.getenv("AGENTFINOPS_API_URL"),
+            api_key=os.getenv("AGENTFINOPS_API_KEY"),
+        )
+        self._agent_registry = agent_registry
+        self._kill_switch_service = kill_switch_service
         self._github = GitHubConnector()
         self._vercel = VercelDeployConnector()
         self._render = RenderDeployConnector()
         self._compiled = self._build_graph()
+
+    def _meter_llm_call(self, node_name: str, llm: Any) -> bool:
+        """Record real usage for this node's LLM call; return True if its budget
+        is now breached (caller should halt further nodes and trip the kill-switch)."""
+        agent_id = NODE_TO_AGENT_ID.get(node_name)
+        if agent_id is None:
+            return False
+        result = self._finops_client.record_usage(
+            scope_type="agent",
+            scope_value=agent_id,
+            provider=llm.provider,
+            model=llm.model,
+            prompt_tokens=llm.prompt_tokens,
+            completion_tokens=llm.completion_tokens,
+        )
+        if self._agent_registry is not None:
+            self._agent_registry.record_usage(agent_id, result.cost_usd)
+        if result.breached and self._kill_switch_service is not None:
+            self._kill_switch_service.activate(
+                "agent",
+                agent_id,
+                reason=f"AgentFinOps budget ${result.budget_usd} exceeded (total ${result.total_cost_usd})",
+                created_by="agentfinops",
+            )
+        return result.breached
 
     def invoke(self, state: WebsiteBuildState) -> WebsiteBuildState:
         graph_state: WebsiteGraphState = {
@@ -107,6 +155,8 @@ class WebsiteBuildLangGraph:
             graph_state = self._to_graph(state)
             updated = node(graph_state)
             state = self._from_graph(updated)
+            if state.status == "blocked_by_kill_switch":
+                break
         return state
 
     def _build_graph(self) -> Any | None:
@@ -114,6 +164,15 @@ class WebsiteBuildLangGraph:
             from langgraph.graph import END, StateGraph
         except ModuleNotFoundError:
             return None
+
+        def _route(next_node: str):
+            def _router(state: WebsiteGraphState) -> str:
+                if state.get("status") == "blocked_by_kill_switch":
+                    return END
+                return next_node
+
+            return _router
+
         graph = StateGraph(WebsiteGraphState)
         graph.add_node("requirements", self._requirements_node)
         graph.add_node("ui_design", self._ui_design_node)
@@ -121,10 +180,10 @@ class WebsiteBuildLangGraph:
         graph.add_node("be_impl", self._be_node)
         graph.add_node("review_deploy", self._review_deploy_node)
         graph.set_entry_point("requirements")
-        graph.add_edge("requirements", "ui_design")
-        graph.add_edge("ui_design", "fe_impl")
-        graph.add_edge("fe_impl", "be_impl")
-        graph.add_edge("be_impl", "review_deploy")
+        graph.add_conditional_edges("requirements", _route("ui_design"))
+        graph.add_conditional_edges("ui_design", _route("fe_impl"))
+        graph.add_conditional_edges("fe_impl", _route("be_impl"))
+        graph.add_conditional_edges("be_impl", _route("review_deploy"))
         graph.add_edge("review_deploy", END)
         return graph.compile()
 
@@ -152,7 +211,11 @@ class WebsiteBuildLangGraph:
                 "acceptance_criteria": ["FE/BE split", "HITL before deploy"],
             }
         traces[-1]["status"] = "completed"
-        return {**state, "requirements_doc": doc, "agent_traces": traces}
+        breached = self._meter_llm_call("requirements", llm)
+        result: WebsiteGraphState = {**state, "requirements_doc": doc, "agent_traces": traces}
+        if breached:
+            result["status"] = "blocked_by_kill_switch"
+        return result
 
     def _ui_design_node(self, state: WebsiteGraphState) -> WebsiteGraphState:
         traces = list(state.get("agent_traces", []))
@@ -173,7 +236,11 @@ class WebsiteBuildLangGraph:
                 "accessibility": "WCAG AA",
             }
         traces[-1]["status"] = "completed"
-        return {**state, "ui_spec": spec, "agent_traces": traces}
+        breached = self._meter_llm_call("ui_design", llm)
+        result: WebsiteGraphState = {**state, "ui_spec": spec, "agent_traces": traces}
+        if breached:
+            result["status"] = "blocked_by_kill_switch"
+        return result
 
     def _fe_node(self, state: WebsiteGraphState) -> WebsiteGraphState:
         traces = list(state.get("agent_traces", []))
@@ -187,6 +254,10 @@ class WebsiteBuildLangGraph:
             "plan": llm.content[:2000],
             "status": "ready_for_review",
         }
+        traces[-1]["status"] = "completed"
+        if self._meter_llm_call("fe_impl", llm):
+            fe["status"] = "blocked_by_kill_switch"
+            return {**state, "fe_artifacts": fe, "agent_traces": traces, "status": "blocked_by_kill_switch"}
         github = self._github.execute(
             ConnectorExecutionContext(
                 tenant_id=state["tenant_id"],
@@ -209,7 +280,6 @@ class WebsiteBuildLangGraph:
                 target_system="vercel",
             )
         )
-        traces[-1]["status"] = "completed"
         return {**state, "fe_artifacts": fe, "gateway_events": gateway_events, "agent_traces": traces}
 
     def _be_node(self, state: WebsiteGraphState) -> WebsiteGraphState:
@@ -224,6 +294,10 @@ class WebsiteBuildLangGraph:
             "plan": llm.content[:2000],
             "status": "ready_for_review",
         }
+        traces[-1]["status"] = "completed"
+        if self._meter_llm_call("be_impl", llm):
+            be["status"] = "blocked_by_kill_switch"
+            return {**state, "be_artifacts": be, "agent_traces": traces, "status": "blocked_by_kill_switch"}
         gateway_events = list(state.get("gateway_events", []))
         gateway_events.append(
             self._gateway_tool(
@@ -233,7 +307,6 @@ class WebsiteBuildLangGraph:
                 target_system="render",
             )
         )
-        traces[-1]["status"] = "completed"
         return {**state, "be_artifacts": be, "gateway_events": gateway_events, "agent_traces": traces}
 
     def _review_deploy_node(self, state: WebsiteGraphState) -> WebsiteGraphState:
@@ -361,8 +434,17 @@ class WebsiteBuildOrchestrator:
         self,
         gateway_fn: GatewayFn | None = None,
         observability: ObservabilityService | None = None,
+        finops_client: FinOpsClient | None = None,
+        agent_registry: AgentRegistryService | None = None,
+        kill_switch_service: KillSwitchService | None = None,
     ) -> None:
-        self._graph = WebsiteBuildLangGraph(gateway_fn=gateway_fn, observability=observability)
+        self._graph = WebsiteBuildLangGraph(
+            gateway_fn=gateway_fn,
+            observability=observability,
+            finops_client=finops_client,
+            agent_registry=agent_registry,
+            kill_switch_service=kill_switch_service,
+        )
         self._observability = observability
         self._runs: list[dict[str, Any]] = []
 

@@ -308,6 +308,8 @@ def _website_gateway_decision(**kwargs: object) -> dict[str, object]:
 website_build_orchestrator = WebsiteBuildOrchestrator(
     gateway_fn=_website_gateway_decision,
     observability=observability_service,
+    agent_registry=agent_registry_service,
+    kill_switch_service=kill_switch_service,
 )
 cors_origins = [
     origin.strip()
