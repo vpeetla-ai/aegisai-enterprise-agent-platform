@@ -2,7 +2,7 @@
 # genuine alternative to the Render/Vercel PaaS path every other repo in this
 # org uses, and the most narratively important service to show on a classic
 # enterprise AWS pattern (VPC/ECS/ALB/IAM). See
-# docs/adr/00XX-paas-vs-iac-deploy-tradeoffs.md for when this earns its
+# adr/0006-paas-vs-iac-deploy-tradeoffs.md for when this earns its
 # complexity over PaaS. Lowest-cost configuration on purpose: public subnets
 # only (no NAT Gateway, saves ~$32/mo), RDS single-AZ smallest burstable
 # tier. Intended to be stood up, verified, and torn down per session

@@ -2,7 +2,7 @@
 
 A real, alternative deploy path to the Render PaaS in the root `render.yaml` — the classic
 enterprise AWS pattern (VPC, ECS Fargate, ALB, RDS, IAM). See
-[adr/00XX-paas-vs-iac-deploy-tradeoffs.md](../../../adr/) for when this earns its complexity
+[adr/0006-paas-vs-iac-deploy-tradeoffs.md](../../../adr/0006-paas-vs-iac-deploy-tradeoffs.md) for when this earns its complexity
 over the PaaS path.
 
 **Cost while running:** the ALB is the dominant fixed cost at roughly $16/month whether or not
