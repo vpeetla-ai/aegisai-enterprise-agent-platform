@@ -141,4 +141,5 @@ resource "aws_security_group" "rds" {
 resource "aws_ecr_repository" "aegisai" {
   name                 = "aegisai-api"
   image_tag_mutability = "MUTABLE"
+  force_delete         = true # this repo is meant to be torn down between sessions, images and all
 }
