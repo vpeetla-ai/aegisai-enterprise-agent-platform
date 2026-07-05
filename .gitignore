@@ -36,3 +36,11 @@ Thumbs.db
 *.log
 *.sqlite3
 *.db
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
