@@ -18,6 +18,7 @@ git clone https://github.com/vpeetla-ai/vpeetla-ai-skills.git
 
 [![Live UI](https://img.shields.io/badge/demo-Vercel-brightgreen)](https://aegisai-enterprise-agent-platform.vercel.app)
 [![API](https://img.shields.io/badge/API-Render-blue)](https://aegisai-api.onrender.com/docs)
+[![CI](https://github.com/vpeetla-ai/aegisai-enterprise-agent-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/vpeetla-ai/aegisai-enterprise-agent-platform/actions/workflows/ci.yml)
 [![Stack](https://img.shields.io/badge/stack-free--tier%20ready-purple)]()
 
 **Monitor → Govern → Remediate** — a production control plane for live AI agent fleets, not another agent builder.
@@ -79,6 +80,8 @@ Agent fleet → AI Gateway (policy + HITL) → Connectors (GitHub, Vercel, Rende
 ---
 
 ## Architecture
+
+Canonical: [`docs/diagrams/canonical-architecture.mmd`](docs/diagrams/canonical-architecture.mmd)
 
 ### North-star control plane
 
@@ -251,9 +254,11 @@ enforcement apply identically. See [ADR-0005](adr/0005-mcp-tool-exposure.md).
 | Layer | Service |
 |-------|---------|
 | Frontend | Vercel (`apps/web`) |
-| API | Render (Docker) |
+| API | Render (Docker) — [aegisai-api.onrender.com](https://aegisai-api.onrender.com) — cold start ~30s |
 | Database | Supabase Postgres |
 | Schedulers | GitHub Actions + Render cron |
+
+> **First-run note:** The Render API sleeps after inactivity on the free tier. The first request after idle takes ~30s to wake; the Vercel control-plane UI loads immediately.
 
 Step-by-step: [DEPLOYMENT-AND-SECRETS.md](platform/architecture/DEPLOYMENT-AND-SECRETS.md)
 

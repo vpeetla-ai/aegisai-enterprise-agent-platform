@@ -1,0 +1,8 @@
+flowchart LR
+    AG["Agent fleet<br/>VAP · Content · Website Build"] --> GW["AI Gateway<br/>POST /api/gateway/tool-request"]
+    GW --> POL["Policy + OPA + HITL"]
+    POL -->|"allow"| EX["Tool execution<br/>Connectors"]
+    POL -->|"approval_required"| HITL["Human approval queue"]
+    GW --> AUD["Signed audit · Postgres"]
+    UI["Control plane UI<br/>Next.js / Vercel"] --- GW
+    AG -.-> LF["Langfuse / LangSmith<br/>trace export"]
