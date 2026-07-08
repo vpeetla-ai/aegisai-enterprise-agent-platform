@@ -1,6 +1,7 @@
 "use client";
 
 import { ApiHealthGate } from "@/components/control-plane/ApiHealthGate";
+import { ArchitectLandingStrip } from "@/components/ArchitectLandingStrip";
 import { GovernanceModuleView } from "@/components/control-plane/GovernanceModuleView";
 import { TopNavigation } from "@/components/navigation/TopNavigation";
 import { useControlPlane } from "@/hooks/useControlPlane";
@@ -22,6 +23,7 @@ export function ControlRoom() {
         detail={cp.apiHealth.detail}
         onRecheck={() => void cp.apiHealth.check()}
       >
+        <ArchitectLandingStrip />
         <GovernanceModuleView
           activeModule={cp.activeModule}
           onBack={() => cp.setActiveModule("dashboard")}
