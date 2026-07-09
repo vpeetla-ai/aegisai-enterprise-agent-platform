@@ -22,7 +22,7 @@ export function ControlRoom() {
         onRecheckApi={() => void cp.apiHealth.check()}
       />
 
-      <div className="workbench-tabs-bar" style={{ display: "flex", gap: "0.5rem", padding: "0 1.25rem", borderBottom: "1px solid var(--border, #2a2a35)" }}>
+      <div className="workbench-tabs-bar" style={{ display: "flex", gap: "0.5rem", padding: "0 1.25rem", borderBottom: "1px solid var(--line, #d9e1ea)" }}>
         <WorkbenchTab active={view === "product"} onClick={() => setView("product")} label="Control plane" hint="Run governance workflows" />
         <WorkbenchTab active={view === "architecture"} onClick={() => setView("architecture")} label="Architecture & metrics" hint="Stack, tradeoffs, SLOs" />
       </div>
@@ -91,18 +91,22 @@ function WorkbenchTab({
       type="button"
       onClick={onClick}
       style={{
+        position: "relative",
         marginBottom: "-1px",
         padding: "0.65rem 1rem",
-        border: active ? "1px solid var(--border, #2a2a35)" : "1px solid transparent",
-        borderBottom: active ? "1px solid var(--bg, #0b0b0f)" : "1px solid transparent",
+        border: active ? "1px solid var(--line, #d9e1ea)" : "1px solid transparent",
+        borderBottom: active ? "1px solid var(--paper, #ffffff)" : "1px solid transparent",
         borderRadius: "8px 8px 0 0",
-        background: active ? "var(--bg, #0b0b0f)" : "transparent",
+        background: active ? "var(--paper, #ffffff)" : "transparent",
         cursor: "pointer",
         textAlign: "left",
       }}
     >
-      <span style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: active ? "var(--text, #e6e6ea)" : "var(--muted, #9a9aa5)" }}>{label}</span>
-      <span style={{ display: "block", fontSize: "0.65rem", color: "var(--muted, #9a9aa5)" }}>{hint}</span>
+      <span style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: active ? "var(--ink, #142033)" : "var(--muted, #607086)" }}>{label}</span>
+      <span style={{ display: "block", fontSize: "0.65rem", color: "var(--muted, #607086)" }}>{hint}</span>
+      {active ? (
+        <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 2, background: "var(--blue, #2563eb)" }} aria-hidden />
+      ) : null}
     </button>
   );
 }
