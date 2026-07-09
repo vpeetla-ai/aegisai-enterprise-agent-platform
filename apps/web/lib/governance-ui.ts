@@ -174,8 +174,11 @@ export function violationCounts(violations: PolicyViolation[]) {
 export function monitorHeroMetrics(
   summary: DashboardSummaryPayload | null,
   monitor: AgentCloudMonitorPayload | null,
-  govern: AgentCloudGovernPayload | null
+  govern: AgentCloudGovernPayload | null,
+  options?: { apiHealthy?: boolean }
 ) {
+  const apiHealthy = options?.apiHealthy !== false;
+  const hasSummary = Boolean(summary);
   const tiles = safeArray(summary?.tiles);
   const agentsTile = tiles.find((t) => t.id === "agents");
   const riskTile = tiles.find((t) => t.id === "risk");
@@ -185,30 +188,34 @@ export function monitorHeroMetrics(
   );
   const violations = buildViolations(monitor, govern);
   const counts = violationCounts(violations);
+  const metricsReady = apiHealthy && (hasSummary || Boolean(monitor) || Boolean(govern));
 
   return [
     {
       id: "agents",
       label: "Agents discovered",
-      value: agentsTile?.value ?? monitor?.agents_in_motion ?? "—",
+      value: metricsReady
+        ? (agentsTile?.value ?? monitor?.agents_in_motion ?? "—")
+        : "—",
       tone: "neutral" as const
     },
     {
       id: "risk",
       label: "High-risk agents",
-      value: riskTile?.value ?? "—",
+      value: metricsReady ? (riskTile?.value ?? "—") : "—",
       tone: "danger" as const
     },
     {
       id: "tools",
       label: "Tools discovered",
-      value: toolCount || "—",
+      value: metricsReady && toolCount ? toolCount : "—",
       tone: "neutral" as const
     },
     {
       id: "violations",
       label: "Active violations",
-      value: counts.open + counts.inProgress,
+      // Never imply "0 open" when the API is cold or metrics never loaded.
+      value: metricsReady ? counts.open + counts.inProgress : "—",
       tone: "warning" as const
     }
   ];

@@ -98,9 +98,10 @@ export function GovernanceDashboard({
   apiHealthy
 }: GovernanceDashboardProps) {
   const tiles = safeArray(summary?.tiles);
-  const hero = monitorHeroMetrics(summary, monitor, govern);
+  const hero = monitorHeroMetrics(summary, monitor, govern, { apiHealthy });
   const violations = buildViolations(monitor, govern);
   const vCounts = violationCounts(violations);
+  const metricsReady = apiHealthy && Boolean(summary || monitor || govern);
 
   return (
     <section className="aegis-dashboard" aria-label="Agent Governance Main Dashboard">
@@ -135,12 +136,20 @@ export function GovernanceDashboard({
         </div>
       </header>
 
+      {!apiHealthy ? (
+        <p className="aegis-empty" role="status">
+          Governance API is waking or offline — module shortcuts stay on Dashboard until Recheck succeeds.
+          Metrics show “—” instead of false zeros.
+        </p>
+      ) : null}
+
       <div className="aegis-hero-metrics on-dashboard">
         {hero.map((metric) => (
           <button
             key={metric.id}
             type="button"
             className={`aegis-hero-metric tone-${metric.tone}`}
+            disabled={!apiHealthy}
             onClick={() =>
               onSelectModule(metric.id === "violations" ? "governance" : "monitor")
             }
@@ -166,6 +175,7 @@ export function GovernanceDashboard({
               key={pillar.id}
               type="button"
               className={`aegis-pillar-card pillar-${pillar.id}`}
+              disabled={!apiHealthy}
               onClick={() => onSelectModule(pillar.module)}
             >
               <Icon size={22} />
@@ -194,6 +204,7 @@ export function GovernanceDashboard({
                   key={tile.id}
                   type="button"
                   className={`aegis-tile accent-${meta.accent} status-${tile.status}`}
+                  disabled={!apiHealthy}
                   onClick={() => onSelectModule(targetModule)}
                 >
                   <div className="aegis-tile-top">
@@ -213,21 +224,30 @@ export function GovernanceDashboard({
           <header>
             <div>
               <h3>Policy violations</h3>
-              <p>{vCounts.open + vCounts.inProgress} need attention</p>
+              <p>
+                {metricsReady
+                  ? `${vCounts.open + vCounts.inProgress} need attention`
+                  : "Unavailable until API is ready"}
+              </p>
             </div>
-            <button type="button" className="aegis-link-btn" onClick={() => onSelectModule("governance")}>
+            <button
+              type="button"
+              className="aegis-link-btn"
+              disabled={!apiHealthy}
+              onClick={() => onSelectModule("governance")}
+            >
               View all <ArrowRight size={14} />
             </button>
           </header>
           <div className="aegis-violation-summary compact">
             <div className="aegis-violation-total">
-              <strong>{vCounts.total}</strong>
+              <strong>{metricsReady ? vCounts.total : "—"}</strong>
               <span>Total</span>
             </div>
             <div className="aegis-violation-breakdown">
-              <span className="status-open">Open {vCounts.open}</span>
-              <span className="status-progress">In progress {vCounts.inProgress}</span>
-              <span className="status-done">Remediated {vCounts.remediated}</span>
+              <span className="status-open">Open {metricsReady ? vCounts.open : "—"}</span>
+              <span className="status-progress">In progress {metricsReady ? vCounts.inProgress : "—"}</span>
+              <span className="status-done">Remediated {metricsReady ? vCounts.remediated : "—"}</span>
             </div>
           </div>
           <div className="aegis-table-wrap">
@@ -240,17 +260,27 @@ export function GovernanceDashboard({
                 </tr>
               </thead>
               <tbody>
-                {violations.slice(0, 5).map((v) => (
-                  <tr key={v.id} className={`row-${v.status}`}>
-                    <td>{v.violation}</td>
-                    <td>
-                      <span className={`aegis-status-pill ${v.status}`}>
-                        {v.status === "in_progress" ? "In progress" : v.status}
-                      </span>
-                    </td>
-                    <td>{v.policy}</td>
+                {!metricsReady ? (
+                  <tr>
+                    <td colSpan={3}>Waiting for governance API…</td>
                   </tr>
-                ))}
+                ) : violations.length === 0 ? (
+                  <tr>
+                    <td colSpan={3}>No open violations in the current sample.</td>
+                  </tr>
+                ) : (
+                  violations.slice(0, 5).map((v) => (
+                    <tr key={v.id} className={`row-${v.status}`}>
+                      <td>{v.violation}</td>
+                      <td>
+                        <span className={`aegis-status-pill ${v.status}`}>
+                          {v.status === "in_progress" ? "In progress" : v.status}
+                        </span>
+                      </td>
+                      <td>{v.policy}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -264,6 +294,7 @@ export function GovernanceDashboard({
               key={action.id}
               type="button"
               className="aegis-quick-chip"
+              disabled={!apiHealthy}
               onClick={() => onSelectModule(resolveModule(action.module))}
             >
               {action.label}

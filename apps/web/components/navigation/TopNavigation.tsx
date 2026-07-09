@@ -20,38 +20,69 @@ export function TopNavigation({
     return activeModule === module ? "nav-active" : "";
   };
 
+  const go = (module: DashboardModule) => {
+    if (!apiHealthy && module !== "dashboard") return;
+    onSelectModule(module);
+  };
+
   return (
     <header className="topbar topbar-clean aegis-topbar">
       <div>
         <p className="eyebrow">AegisAI</p>
         <h1>Agent Governance Control Plane</h1>
       </div>
-      <div className="top-actions">
-        <button type="button" className={navClass("dashboard")} onClick={() => onSelectModule("dashboard")}>
+      <div className="top-actions" aria-disabled={!apiHealthy || undefined}>
+        <button type="button" className={navClass("dashboard")} onClick={() => go("dashboard")}>
           <LayoutDashboard size={18} />
           Dashboard
         </button>
-        <button type="button" className={navClass("monitor")} onClick={() => onSelectModule("monitor")}>
+        <button
+          type="button"
+          className={navClass("monitor")}
+          disabled={!apiHealthy}
+          title={!apiHealthy ? "Available when governance API is ready" : undefined}
+          onClick={() => go("monitor")}
+        >
           <Eye size={18} />
           Monitor
         </button>
-        <button type="button" className={navClass("governance")} onClick={() => onSelectModule("governance")}>
+        <button
+          type="button"
+          className={navClass("governance")}
+          disabled={!apiHealthy}
+          title={!apiHealthy ? "Available when governance API is ready" : undefined}
+          onClick={() => go("governance")}
+        >
           <Shield size={18} />
           Governance
         </button>
-        <button type="button" className={navClass("gateway")} onClick={() => onSelectModule("gateway")}>
+        <button
+          type="button"
+          className={navClass("gateway")}
+          disabled={!apiHealthy}
+          title={!apiHealthy ? "Available when governance API is ready" : undefined}
+          onClick={() => go("gateway")}
+        >
           <Plug size={18} />
           AI Gateway
         </button>
         <button
           type="button"
           className={activeModule === "orchestrators" ? "nav-active" : ""}
-          onClick={() => onSelectModule("orchestrators")}
+          disabled={!apiHealthy}
+          title={!apiHealthy ? "Available when governance API is ready" : undefined}
+          onClick={() => go("orchestrators")}
         >
           <Radio size={18} />
           Orchestrators
         </button>
-        <button type="button" className={navClass("onboard")} onClick={() => onSelectModule("onboard")}>
+        <button
+          type="button"
+          className={navClass("onboard")}
+          disabled={!apiHealthy}
+          title={!apiHealthy ? "Available when governance API is ready" : undefined}
+          onClick={() => go("onboard")}
+        >
           <UserPlus size={18} />
           Onboard
         </button>
