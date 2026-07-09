@@ -3,6 +3,7 @@
 import { ArchitectOverview } from "@/components/ArchitectOverview";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "https://aegisai-api.onrender.com";
+const PORTFOLIO = "https://github.com/vpeetla-ai/ai-architecture-portfolio/blob/main";
 
 export function ArchitectLandingStrip() {
   return (
@@ -24,6 +25,14 @@ export function ArchitectLandingStrip() {
         metricsUrl={`${API_BASE}/api/v1/ops/metrics`}
         metricLabels={{ runs: "Governed actions", entities: "Open cases", latency: "P95 latency" }}
         eagleEyeNote="Every side effect in the vpeetla-ai stack routes through this layer before production impact."
+        adrLinks={[
+          { title: "ADR-011 — Agent FinOps standalone service", href: `${PORTFOLIO}/adr/ADR-011-agent-finops-standalone-service.md` },
+          { title: "Case study — AegisAI governance", href: `${PORTFOLIO}/case-studies/aegisai-enterprise-agent-platform.md` },
+        ]}
+        docsLinks={[
+          { title: "Architecture", href: "https://github.com/vpeetla-ai/aegisai-enterprise-agent-platform/blob/main/docs/ARCHITECTURE.md" },
+          { title: "SLO targets", href: "https://github.com/vpeetla-ai/aegisai-enterprise-agent-platform/blob/main/docs/SLO.md" },
+        ]}
       />
     </div>
   );
