@@ -1,13 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { ApiHealthGate } from "@/components/control-plane/ApiHealthGate";
 import { ArchitectLandingStrip } from "@/components/ArchitectLandingStrip";
 import { GovernanceModuleView } from "@/components/control-plane/GovernanceModuleView";
 import { TopNavigation } from "@/components/navigation/TopNavigation";
 import { useControlPlane } from "@/hooks/useControlPlane";
 
+type WorkbenchView = "product" | "architecture";
+
 export function ControlRoom() {
   const cp = useControlPlane();
+  const [view, setView] = useState<WorkbenchView>("product");
 
   return (
     <main className="shell shell-clean">
@@ -18,13 +22,20 @@ export function ControlRoom() {
         onRecheckApi={() => void cp.apiHealth.check()}
       />
 
+      <div className="workbench-tabs-bar" style={{ display: "flex", gap: "0.5rem", padding: "0 1.25rem", borderBottom: "1px solid var(--border, #2a2a35)" }}>
+        <WorkbenchTab active={view === "product"} onClick={() => setView("product")} label="Control plane" hint="Run governance workflows" />
+        <WorkbenchTab active={view === "architecture"} onClick={() => setView("architecture")} label="Architecture & metrics" hint="Stack, tradeoffs, SLOs" />
+      </div>
+
       <ApiHealthGate
         status={cp.apiHealth.status}
         detail={cp.apiHealth.detail}
         onRecheck={() => void cp.apiHealth.check()}
       >
-        <ArchitectLandingStrip />
-        <GovernanceModuleView
+        {view === "architecture" ? (
+          <ArchitectLandingStrip />
+        ) : (
+          <GovernanceModuleView
           activeModule={cp.activeModule}
           onBack={() => cp.setActiveModule("dashboard")}
           dashboardSummary={cp.dashboardSummary}
@@ -58,7 +69,40 @@ export function ControlRoom() {
           onUndo={(id) => void cp.undoAgentAction(id)}
           incidentTimeline={cp.incidentTimeline}
         />
+        )}
       </ApiHealthGate>
     </main>
+  );
+}
+
+function WorkbenchTab({
+  active,
+  onClick,
+  label,
+  hint,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  hint: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        marginBottom: "-1px",
+        padding: "0.65rem 1rem",
+        border: active ? "1px solid var(--border, #2a2a35)" : "1px solid transparent",
+        borderBottom: active ? "1px solid var(--bg, #0b0b0f)" : "1px solid transparent",
+        borderRadius: "8px 8px 0 0",
+        background: active ? "var(--bg, #0b0b0f)" : "transparent",
+        cursor: "pointer",
+        textAlign: "left",
+      }}
+    >
+      <span style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: active ? "var(--text, #e6e6ea)" : "var(--muted, #9a9aa5)" }}>{label}</span>
+      <span style={{ display: "block", fontSize: "0.65rem", color: "var(--muted, #9a9aa5)" }}>{hint}</span>
+    </button>
   );
 }
