@@ -299,6 +299,22 @@ aegisai-enterprise-agent-platform/
 
 ---
 
+## Interview map
+
+**Business function:** Enterprise agent governance — AI gateway, OPA policy, HITL, signed audit, FinOps before side effects.
+
+Staff+ prep crosswalk — [playbook](https://github.com/vpeetla-ai/ai-architect-interview-playbook) · [study UI](https://ai-architect-interview-playbook-9xs.vercel.app) · [Practice Arena](https://ai-architect-practice-arena.vercel.app) · [org matrix](https://github.com/vpeetla-ai/ai-architecture-portfolio/blob/main/docs/REPO_INTERVIEW_MAP.md). Only entries this repo honestly exercises.
+
+| Category | Entry | Fit |
+|----------|-------|-----|
+| Cloud | [Security & compliance for AI](https://ai-architect-interview-playbook-9xs.vercel.app/q/cloud-architecture/05-security-and-compliance-architecture-for-ai-systems) ([md](https://github.com/vpeetla-ai/ai-architect-interview-playbook/blob/main/cloud-architecture/05-security-and-compliance-architecture-for-ai-systems.md)) | Control plane: identity, policy, audit, break-glass |
+| Cloud | [LLM gateway](https://ai-architect-interview-playbook-9xs.vercel.app/q/cloud-architecture/07-llm-gateway-semantic-cache-model-router) ([md](https://github.com/vpeetla-ai/ai-architect-interview-playbook/blob/main/cloud-architecture/07-llm-gateway-semantic-cache-model-router.md)) | Gateway authorization before tools execute |
+| System design | [Agent orchestration (governance half)](https://ai-architect-interview-playbook-9xs.vercel.app/q/ai-system-design/03-agent-tool-use-orchestration-platform) ([md](https://github.com/vpeetla-ai/ai-architect-interview-playbook/blob/main/ai-system-design/03-agent-tool-use-orchestration-platform.md)) | Tool authorization / HITL for VAP notify and peers |
+| System design | [Multi-tenant AI platform](https://ai-architect-interview-playbook-9xs.vercel.app/q/ai-system-design/09-multi-tenant-ai-platform-architecture) ([md](https://github.com/vpeetla-ai/ai-architect-interview-playbook/blob/main/ai-system-design/09-multi-tenant-ai-platform-architecture.md)) | Partial — tenant/policy isolation patterns |
+| System design | [Agent sandboxing / code exec](https://ai-architect-interview-playbook-9xs.vercel.app/q/ai-system-design/10-ai-agent-sandboxing-and-code-execution-security) ([md](https://github.com/vpeetla-ai/ai-architect-interview-playbook/blob/main/ai-system-design/10-ai-agent-sandboxing-and-code-execution-security.md)) | Partial — blast-radius controls for tools |
+| Trade-offs | [Centralize vs federate governance](https://ai-architect-interview-playbook-9xs.vercel.app/q/scalability-governance-tradeoffs/03-centralize-vs-federate-governance) ([md](https://github.com/vpeetla-ai/ai-architect-interview-playbook/blob/main/scalability-governance-tradeoffs/03-centralize-vs-federate-governance.md)) | Primary ADR theme for this layer |
+| Behavioral | [Org-wide security hardening](https://ai-architect-interview-playbook-9xs.vercel.app/q/behavioral/03-org-wide-security-hardening) ([md](https://github.com/vpeetla-ai/ai-architect-interview-playbook/blob/main/behavioral/03-org-wide-security-hardening.md)) | Unauthenticated endpoints / API-key gates story |
+
 ## Related projects
 
 See [docs/ECOSYSTEM.md](docs/ECOSYSTEM.md) for how repos connect.
