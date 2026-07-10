@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Protocol
 from uuid import uuid4
@@ -8,6 +9,11 @@ from .agent_registry import AgentRegistryService, RegisteredAgent
 from .gateway_metrics import GatewayMetricsService
 from .identity_rbac import IdentityRBACService
 from .kill_switch import KillSwitchService
+
+
+def _production_strict() -> bool:
+    """Org PRODUCTION_STRICT (ADR-024): demos may seed monitor; prod mode must not."""
+    return os.getenv("PRODUCTION_STRICT", "").strip().lower() in {"1", "true", "yes"}
 
 
 class _AgentCloudStore(Protocol):
@@ -144,7 +150,7 @@ class AgentCloudService:
                 }
             )
 
-        if not activity:
+        if not activity and not _production_strict():
             activity = _seed_monitor_activity(agents)
 
         agents_in_motion = [

@@ -54,6 +54,7 @@ AegisAI is a **governance control plane**:
 | Python gateway SDK (`sdk/python/`) | ✅ |
 | TypeScript reference client (`apps/web/lib/gateway/`) | ✅ In-repo reference (not npm package) |
 | Control plane UI (dashboard, monitor, governance) | ✅ |
+| Seed monitor / demo activity | ✅ Demo default seeds synthetic monitor events when audit is empty; **`PRODUCTION_STRICT=true` disables seed** so Monitor shows only real audit rows (empty until traffic) |
 | Content + Stock cron orchestrators | ✅ Managed runs (no per-tool gateway intercept yet); now require `AuthRequired` like every other mutating route — see [ADR-0003](adr/0003-orchestrator-auth-gate.md) |
 | Agent registry Postgres persistence | ✅ `AEGISAI_DB_BACKEND=postgres` — SQLite (dev default) or Postgres via `factory.py` |
 | OPA policy engine | 🟡 Optional — default is builtin policy simulator; **fails open** (advisory, not a hard block) when unavailable |
@@ -234,6 +235,21 @@ sequenceDiagram
 ```bash
 make verify
 ```
+
+### Production honesty (`PRODUCTION_STRICT`)
+
+| Mode | Monitor activity when audit is empty |
+|------|--------------------------------------|
+| Demo (default) | Synthetic seed events so the dashboard looks alive |
+| `PRODUCTION_STRICT=true` | **No seed** — activity list stays empty until real gateway/audit events exist |
+
+Set the org flag on Render (or local) when reviewing production posture:
+
+```bash
+export PRODUCTION_STRICT=true
+```
+
+See portfolio [ADR-024](https://github.com/vpeetla-ai/ai-architecture-portfolio/blob/main/adr/ADR-024-production-strict-fail-closed.md) and [ADR-025](https://github.com/vpeetla-ai/ai-architecture-portfolio/blob/main/adr/ADR-025-nist-ai-rmf-threat-model.md).
 
 ### MCP server (governed tools for Claude Code, Cursor, Claude Desktop)
 
