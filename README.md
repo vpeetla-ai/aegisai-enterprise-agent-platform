@@ -141,6 +141,8 @@ flowchart TB
 
 Note: **Governed audit, HITL, and policy state remain in AegisAI** — Langfuse/LangSmith are trace/eval export adapters (`GET /api/observability/status`).
 
+**Fleet honesty:** Content + Stock cron orchestrators are managed AegisAI routes (status ✅). Per-tool gateway intercept is wired for VAP notify · Website Build · SDK consumers — not every fleet box above is gateway-intercepted on every call.
+
 ### Layered backend (clean architecture)
 
 ```mermaid
@@ -286,7 +288,7 @@ Step-by-step: [DEPLOYMENT-AND-SECRETS.md](platform/architecture/DEPLOYMENT-AND-S
 aegisai-enterprise-agent-platform/
 ├── apps/web/              # Next.js control plane UI
 ├── services/api/          # FastAPI — gateway, product, orchestration
-├── orchestrators/         # Phase-2 stubs (canonical code: services/api/.../orchestration/)
+├── orchestrators/         # Legacy stubs — canonical Content/Stock cron live in services/api/.../orchestration/
 ├── sdk/python/            # Gateway SDK
 ├── platform/
 │   ├── architecture/      # North-star docs
