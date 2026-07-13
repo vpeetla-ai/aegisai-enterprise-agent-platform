@@ -108,11 +108,13 @@ export function GovernanceDashboard({
     <section className="aegis-dashboard" aria-label="Agent Governance Main Dashboard">
       <header className="aegis-dashboard-hero">
         <div className="aegis-dashboard-hero-copy">
-          <p className="aegis-kicker">Agent Governance Control Plane</p>
-          <h1>{summary?.headline ?? "Main Dashboard"}</h1>
+          <p className="aegis-kicker">What is AegisAI?</p>
+          <h1>Govern agent tools before they hurt production</h1>
           <p>
-            Monitor agent sprawl, enforce gateway policy, and remediate reversible actions — Rubrik-style
-            visibility with Guild-style control plane authority.
+            AegisAI is the <strong>control plane for agent side effects</strong>. When an agent
+            wants to deploy, refund, email, or push code, the <strong>AI Gateway</strong>{" "}
+            intercepts the call, checks policy, asks a human if needed, then allows or blocks —
+            with a signed audit trail.
           </p>
           {summary ? (
             <div className="aegis-posture-ring">
@@ -132,14 +134,36 @@ export function GovernanceDashboard({
             disabled={!apiHealthy}
           >
             <Plug size={16} />
-            Open AI Gateway
+            Start with AI Gateway
           </button>
         </div>
       </header>
 
+      <ol className="aegis-journey-strip aegis-journey-home" aria-label="Product journey">
+        {[
+          { n: "1", label: "Onboard", detail: "Register an agent", module: "onboard" as DashboardModule },
+          { n: "2", label: "AI Gateway", detail: "Try a tool intercept", module: "gateway" as DashboardModule },
+          { n: "3", label: "Monitor", detail: "See the audit trail", module: "monitor" as DashboardModule },
+          { n: "4", label: "Governance", detail: "Policy & HITL queue", module: "governance" as DashboardModule }
+        ].map((step) => (
+          <li key={step.n}>
+            <button
+              type="button"
+              className="aegis-journey-home-btn"
+              disabled={!apiHealthy}
+              onClick={() => onSelectModule(step.module)}
+            >
+              <span className="aegis-journey-n">{step.n}</span>
+              <strong>{step.label}</strong>
+              <span>{step.detail}</span>
+            </button>
+          </li>
+        ))}
+      </ol>
+
       {!apiHealthy ? (
         <p className="aegis-empty" role="status">
-          Governance API is waking or offline — module shortcuts stay on Dashboard until Recheck succeeds.
+          Governance API is waking or offline — module shortcuts stay on Home until Recheck succeeds.
           Metrics show “—” instead of false zeros.
         </p>
       ) : null}

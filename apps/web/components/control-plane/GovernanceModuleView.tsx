@@ -30,17 +30,17 @@ import type {
 } from "@/lib/api/types";
 
 const MODULE_TITLES: Record<DashboardModule, string> = {
-  dashboard: "Dashboard",
-  monitor: "Agent Monitor",
+  dashboard: "Home",
+  monitor: "Monitor",
   agents: "Agents",
   governance: "Governance",
   gateway: "AI Gateway",
-  "llm-plane": "LLM Plane",
+  "llm-plane": "Model plane",
   hitl: "HITL queue",
   finops: "FinOps",
   incidents: "Incidents",
   orchestrators: "Orchestrators",
-  onboard: "Onboard agent"
+  onboard: "Onboard"
 };
 
 type GovernanceModuleViewProps = {
@@ -122,8 +122,8 @@ export function GovernanceModuleView(props: GovernanceModuleViewProps) {
   if (activeModule === "gateway") {
     return (
       <ModuleShell
-        title={title}
-        subtitle="Connect production agents · intercept tools · measure coverage"
+        title="AI Gateway"
+        subtitle="Step 2 — Govern every dangerous tool call before it executes"
         onBack={onBack}
       >
         <GatewayPanel
@@ -131,6 +131,8 @@ export function GovernanceModuleView(props: GovernanceModuleViewProps) {
           metrics={props.governanceMetrics}
           onRefreshMetrics={props.onRefreshMetrics}
           isLoading={props.isLoadingAgentCloud}
+          onOpenOnboard={() => props.onSelectModule("onboard")}
+          onOpenMonitor={() => props.onSelectModule("monitor")}
         />
       </ModuleShell>
     );
@@ -139,8 +141,8 @@ export function GovernanceModuleView(props: GovernanceModuleViewProps) {
   if (activeModule === "llm-plane") {
     return (
       <ModuleShell
-        title={title}
-        subtitle="Federated model plane — gateway + cache metrics; self-serve agent registry"
+        title="Model plane"
+        subtitle="Optional — LLM gateway + cache metrics (not tool intercept)"
         onBack={onBack}
       >
         <LlmPlanePanel agentRegistry={props.agentRegistry} onRefreshAgents={props.onRefreshAgents} />

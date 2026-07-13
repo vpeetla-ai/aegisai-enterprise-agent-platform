@@ -36,6 +36,46 @@ class LlmPlaneOpsTests(unittest.TestCase):
         self.assertEqual(gw["plane"], "aegis-llm-gateway")
         self.assertEqual(cache["plane"], "aegis-semantic-cache")
 
+    def test_unreachable_uses_demo_fallback_by_default(self) -> None:
+        with patch(
+            "aegisai.product.llm_plane_ops.fetch_plane_metrics",
+            return_value={"reachable": False, "error": "ConnectError", "detail": "down"},
+        ):
+            gw = gateway_ops_payload()
+            cache = cache_ops_payload()
+        self.assertTrue(gw["reachable"])
+        self.assertEqual(gw["source"], "demo_fallback")
+        self.assertEqual(gw["metrics"]["service"], "aegis-llm-gateway")
+        self.assertEqual(gw["live_error"], "ConnectError")
+        self.assertTrue(cache["reachable"])
+        self.assertEqual(cache["source"], "demo_fallback")
+        self.assertEqual(cache["metrics"]["service"], "aegis-semantic-cache")
+
+    def test_demo_fallback_can_be_disabled(self) -> None:
+        with (
+            patch.dict("os.environ", {"LLM_PLANE_DEMO_FALLBACK": "false"}),
+            patch(
+                "aegisai.product.llm_plane_ops.fetch_plane_metrics",
+                return_value={"reachable": False, "error": "ConnectError"},
+            ),
+        ):
+            gw = gateway_ops_payload()
+        self.assertFalse(gw["reachable"])
+        self.assertNotEqual(gw.get("source"), "demo_fallback")
+
+    def test_live_metrics_skip_demo_fallback(self) -> None:
+        with patch(
+            "aegisai.product.llm_plane_ops.fetch_plane_metrics",
+            return_value={
+                "reachable": True,
+                "source": "live",
+                "metrics": {"completions": 9},
+            },
+        ):
+            gw = gateway_ops_payload()
+        self.assertEqual(gw["source"], "live")
+        self.assertEqual(gw["metrics"]["completions"], 9)
+
 
 if __name__ == "__main__":
     unittest.main()

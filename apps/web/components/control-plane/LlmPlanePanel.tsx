@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Activity, Database, Layers, RefreshCw, UserPlus } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  Database,
+  Layers,
+  RefreshCw,
+  UserPlus
+} from "lucide-react";
 import { requestJson } from "@/lib/api/client";
 import { safeArray } from "@/lib/api/safe";
 import type { AgentRegistryPayload } from "@/lib/api/types";
@@ -15,6 +23,8 @@ type PlaneFetch = {
   url?: string;
   error?: string;
   detail?: string;
+  source?: string;
+  note?: string;
   metrics?: Record<string, unknown>;
 };
 
@@ -23,12 +33,20 @@ type LlmPlanePanelProps = {
   onRefreshAgents?: () => void;
 };
 
-function MetricCell({ label, value }: { label: string; value: string | number }) {
+const TABS: Array<{ id: PlaneTab; label: string; hint: string; icon: typeof Activity }> = [
+  { id: "gateway", label: "Gateway", hint: "Completions & FinOps", icon: Activity },
+  { id: "cache", label: "Cache", hint: "Hit / miss", icon: Database },
+  { id: "tenants", label: "Tenants", hint: "Isolation model", icon: Layers },
+  { id: "registry", label: "Registry", hint: "Onboard agents", icon: UserPlus }
+];
+
+function MetricTile({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
   return (
-    <div>
+    <article className="aegis-metric-tile">
       <span>{label}</span>
       <strong>{value}</strong>
-    </div>
+      {hint ? <em>{hint}</em> : null}
+    </article>
   );
 }
 
@@ -56,66 +74,111 @@ export function LlmPlanePanel({ agentRegistry, onRefreshAgents }: LlmPlanePanelP
   const gw = gateway?.metrics ?? {};
   const ca = cache?.metrics ?? {};
   const agents = safeArray(agentRegistry?.agents);
+  const usingDemo =
+    gateway?.source === "demo_fallback" || cache?.source === "demo_fallback";
 
   return (
-    <section className="panel" aria-label="LLM gateway plane">
-      <div className="panel-header">
+    <section className="aegis-page aegis-llm-plane" aria-label="Model plane">
+      <header className="aegis-page-header">
         <div>
-          <h3>LLM Gateway Plane</h3>
+          <p className="aegis-kicker">Optional · Model plane</p>
+          <h2>LLM Gateway Plane metrics</h2>
           <p className="aegis-page-lead">
-            Federated model plane (ADR-028) — metrics from aegis-llm-gateway + aegis-semantic-cache.
-            Tool intercept stays on <strong>AI Gateway</strong>. Completions are not proxied here.
+            Shared completions + semantic cache for apps (VAP, ACF, …). This page only{" "}
+            <strong>reads ops metrics</strong> — it does not proxy chat. Tool governance stays on{" "}
+            <strong>AI Gateway</strong>.
           </p>
         </div>
-        <button type="button" onClick={() => void refresh()} disabled={loading}>
-          <RefreshCw size={16} /> {loading ? "Refreshing…" : "Refresh"}
+        <button
+          type="button"
+          className="aegis-btn-ghost"
+          onClick={() => void refresh()}
+          disabled={loading}
+        >
+          <RefreshCw size={16} />
+          {loading ? "Refreshing…" : "Refresh"}
         </button>
-      </div>
+      </header>
 
-      <div className="aegis-wizard-steps" role="tablist" style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-        {(
-          [
-            ["gateway", "Gateway", Activity],
-            ["cache", "Cache", Database],
-            ["tenants", "Tenants", Layers],
-            ["registry", "Registry", UserPlus]
-          ] as const
-        ).map(([id, label, Icon]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={tab === id}
-            className={tab === id ? "primary-action" : ""}
-            onClick={() => setTab(id)}
-          >
-            <Icon size={16} /> {label}
-          </button>
-        ))}
+      <aside className="aegis-callout aegis-callout-info" role="note">
+        <Layers size={18} />
+        <div>
+          <strong>Two different gateways</strong>
+          <p>
+            <em>AI Gateway</em> = deploy / email / refund tools. <em>Model plane</em> ={" "}
+            <code>aegis-llm-gateway</code> + <code>aegis-semantic-cache</code> completion metrics.
+          </p>
+        </div>
+      </aside>
+
+      {usingDemo ? (
+        <aside className="aegis-callout aegis-callout-warn" role="status">
+          <AlertTriangle size={18} />
+          <div>
+            <strong>Demo sample metrics</strong>
+            <p>
+              Live Render URLs are not configured yet, so you are seeing illustrative numbers. For
+              live data: deploy gateway + cache on Render, then set{" "}
+              <code>LLM_GATEWAY_OPS_URL</code> and <code>SEMANTIC_CACHE_OPS_URL</code> on the
+              AegisAI API.
+            </p>
+          </div>
+        </aside>
+      ) : null}
+
+      <div className="aegis-segment" role="tablist" aria-label="Model plane sections">
+        {TABS.map((item) => {
+          const Icon = item.icon;
+          const active = tab === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              className={`aegis-segment-item${active ? " is-active" : ""}`}
+              onClick={() => setTab(item.id)}
+            >
+              <Icon size={16} />
+              <span>
+                <strong>{item.label}</strong>
+                <em>{item.hint}</em>
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {tab === "gateway" ? (
-        <div className="aegis-card" style={{ marginTop: "1rem" }}>
-          {!gateway?.reachable ? (
-            <p>
-              Gateway metrics unreachable
-              {gateway?.url ? ` (${gateway.url})` : ""}. Set{" "}
-              <code>LLM_GATEWAY_OPS_URL</code> on the API, or run aegis-llm-gateway locally on :8100.
-              {gateway?.error ? ` — ${gateway.error}` : ""}
+        <div className="aegis-card">
+          <div className="aegis-card-header">
+            <h3>aegis-llm-gateway</h3>
+            <span className={`aegis-status-pill ${gateway?.reachable ? "remediated" : "open"}`}>
+              {gateway?.source === "demo_fallback"
+                ? "demo sample"
+                : gateway?.reachable
+                  ? "live"
+                  : "unreachable"}
+            </span>
+          </div>
+          {!gateway?.reachable && gateway?.source !== "demo_fallback" ? (
+            <p className="aegis-empty">
+              Unreachable{gateway?.url ? ` (${gateway.url})` : ""}. Deploy on Render or set{" "}
+              <code>LLM_GATEWAY_OPS_URL</code>.
             </p>
           ) : (
             <>
-              <p>
-                Plane: <code>{String(gateway.plane)}</code> · mode:{" "}
-                <code>{String(gw.control_plane_mode ?? "—")}</code>
+              <p className="aegis-muted-line">
+                Mode: <code>{String(gw.control_plane_mode ?? "—")}</code>
+                {gateway?.note ? ` · ${gateway.note}` : null}
               </p>
-              <div className="metric-grid">
-                <MetricCell label="Completions" value={Number(gw.completions ?? 0)} />
-                <MetricCell label="Stub completions" value={Number(gw.stub_completions ?? 0)} />
-                <MetricCell label="Cache hits (via GW)" value={Number(gw.cache_hits ?? 0)} />
-                <MetricCell label="Cache misses (via GW)" value={Number(gw.cache_misses ?? 0)} />
-                <MetricCell label="FinOps meters" value={Number(gw.finops_meters ?? 0)} />
-                <MetricCell label="Budget blocks" value={Number(gw.finops_breaches_blocked ?? 0)} />
+              <div className="aegis-metric-tile-grid">
+                <MetricTile label="Completions" value={Number(gw.completions ?? 0)} />
+                <MetricTile label="Stub completions" value={Number(gw.stub_completions ?? 0)} />
+                <MetricTile label="Cache hits" value={Number(gw.cache_hits ?? 0)} />
+                <MetricTile label="Cache misses" value={Number(gw.cache_misses ?? 0)} />
+                <MetricTile label="FinOps meters" value={Number(gw.finops_meters ?? 0)} />
+                <MetricTile label="Budget blocks" value={Number(gw.finops_breaches_blocked ?? 0)} />
               </div>
             </>
           )}
@@ -123,74 +186,105 @@ export function LlmPlanePanel({ agentRegistry, onRefreshAgents }: LlmPlanePanelP
       ) : null}
 
       {tab === "cache" ? (
-        <div className="aegis-card" style={{ marginTop: "1rem" }}>
-          {!cache?.reachable ? (
-            <p>
-              Semantic cache metrics unreachable
-              {cache?.url ? ` (${cache.url})` : ""}. Set <code>SEMANTIC_CACHE_OPS_URL</code> or run
-              aegis-semantic-cache on :8101.
-              {cache?.error ? ` — ${cache.error}` : ""}
+        <div className="aegis-card">
+          <div className="aegis-card-header">
+            <h3>aegis-semantic-cache</h3>
+            <span className={`aegis-status-pill ${cache?.reachable ? "remediated" : "open"}`}>
+              {cache?.source === "demo_fallback"
+                ? "demo sample"
+                : cache?.reachable
+                  ? "live"
+                  : "unreachable"}
+            </span>
+          </div>
+          {!cache?.reachable && cache?.source !== "demo_fallback" ? (
+            <p className="aegis-empty">
+              Unreachable{cache?.url ? ` (${cache.url})` : ""}. Deploy on Render or set{" "}
+              <code>SEMANTIC_CACHE_OPS_URL</code>.
             </p>
           ) : (
-            <>
-              <p>
-                Plane: <code>{String(cache.plane)}</code>
-              </p>
-              <div className="metric-grid">
-                <MetricCell label="Hits" value={Number(ca.hits ?? 0)} />
-                <MetricCell label="Misses" value={Number(ca.misses ?? 0)} />
-                <MetricCell label="Entries" value={Number(ca.entries ?? 0)} />
-                <MetricCell
-                  label="Hit rate"
-                  value={
-                    typeof ca.hit_rate === "number"
-                      ? `${Math.round(ca.hit_rate * 1000) / 10}%`
-                      : String(ca.hit_rate ?? "—")
-                  }
-                />
-              </div>
-            </>
+            <div className="aegis-metric-tile-grid">
+              <MetricTile label="Hits" value={Number(ca.hits ?? 0)} />
+              <MetricTile label="Misses" value={Number(ca.misses ?? 0)} />
+              <MetricTile label="Entries" value={Number(ca.entries ?? 0)} />
+              <MetricTile
+                label="Hit rate"
+                value={
+                  typeof ca.hit_rate === "number"
+                    ? `${Math.round(Number(ca.hit_rate) * 1000) / 10}%`
+                    : String(ca.hit_rate ?? "—")
+                }
+              />
+            </div>
           )}
         </div>
       ) : null}
 
       {tab === "tenants" ? (
-        <div className="aegis-card" style={{ marginTop: "1rem" }}>
+        <div className="aegis-card">
+          <h3>Logical multi-tenant isolation</h3>
           <p>
-            Logical multi-tenant isolation via <code>X-Tenant-Id</code> on the LLM plane (not hard
-            cells). Consumer defaults: <code>vap</code>, <code>ai-content-factory</code>,{" "}
-            <code>sentinel-brief</code>, <code>domainforge-rag-peft</code>, <code>omniforge</code>.
+            Every completion carries <code>X-Tenant-Id</code>. Cache keys include that tenant — a
+            lookup from another tenant must miss.
           </p>
-          <ul>
-            <li>Quota / budget usage surfaces through gateway FinOps meters when agent-finops is wired.</li>
-            <li>Cache keys are tenant-scoped in aegis-semantic-cache.</li>
-            <li>Demo mode may fail-open; strict mode fail-closed on budget breach (HTTP 402).</li>
+          <ul className="aegis-plain-list">
+            <li>
+              Known consumer ids: <code>vap</code>, <code>ai-content-factory</code>,{" "}
+              <code>sentinel-brief</code>, <code>domainforge-rag-peft</code>, <code>omniforge</code>
+            </li>
+            <li>Strict mode: budget breach → HTTP 402; FinOps down → 503</li>
+            <li>Demo mode: fail-open with honest <code>/v1/posture</code></li>
           </ul>
         </div>
       ) : null}
 
       {tab === "registry" ? (
-        <div style={{ marginTop: "1rem", display: "grid", gap: "1rem" }}>
+        <div className="aegis-llm-registry">
           <div className="aegis-card">
-            <h4>Registered agents ({agentRegistry?.summary?.total_agents ?? agents.length})</h4>
+            <div className="aegis-card-header">
+              <h3>Registered agents</h3>
+              <span>{agentRegistry?.summary?.total_agents ?? agents.length} total</span>
+            </div>
             {agents.length === 0 ? (
-              <p>No agents in registry yet — use the form below to POST a real entry.</p>
+              <p className="aegis-empty">No agents yet — use the form below to register one.</p>
             ) : (
-              <ul>
-                {agents.slice(0, 12).map((agent) => (
-                  <li key={agent.agent_id}>
-                    <strong>{agent.name}</strong> (<code>{agent.agent_id}</code>) — {agent.status} ·{" "}
-                    {agent.risk_tier} · {agent.model_provider}
-                  </li>
-                ))}
-              </ul>
+              <div className="aegis-table-wrap">
+                <table className="aegis-table compact">
+                  <thead>
+                    <tr>
+                      <th>Agent</th>
+                      <th>Status</th>
+                      <th>Risk</th>
+                      <th>Model</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {agents.slice(0, 12).map((agent) => (
+                      <tr key={agent.agent_id}>
+                        <td>
+                          <strong>{agent.name}</strong>
+                          <br />
+                          <code>{agent.agent_id}</code>
+                        </td>
+                        <td>
+                          <span className="aegis-status-pill in_progress">{agent.status}</span>
+                        </td>
+                        <td>{agent.risk_tier}</td>
+                        <td>{agent.model_provider}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
+            {agents.length > 0 ? (
+              <p className="aegis-muted-line">
+                <CheckCircle2 size={14} /> These rows come from real{" "}
+                <code>POST /api/agent-registry/lifecycle</code> entries.
+              </p>
+            ) : null}
           </div>
-          <AgentOnboardingWizard
-            onComplete={() => {
-              void onRefreshAgents?.();
-            }}
-          />
+          <AgentOnboardingWizard onComplete={() => void onRefreshAgents?.()} />
         </div>
       ) : null}
     </section>

@@ -1,4 +1,12 @@
-import { Eye, LayoutDashboard, Layers, Plug, Radio, Shield, UserPlus } from "lucide-react";
+import {
+  Eye,
+  Home,
+  Layers,
+  Plug,
+  Radio,
+  Shield,
+  UserPlus
+} from "lucide-react";
 import type { DashboardModule } from "@/components/control-plane/GovernanceDashboard";
 
 type TopNavigationProps = {
@@ -8,16 +16,33 @@ type TopNavigationProps = {
   onRecheckApi: () => void;
 };
 
+/** Product journey order — left → right teaches what AegisAI is. */
+const NAV_ITEMS: Array<{
+  module: DashboardModule;
+  label: string;
+  step?: string;
+  hint: string;
+  icon: typeof Home;
+}> = [
+  { module: "dashboard", label: "Home", hint: "What this product is", icon: Home },
+  { module: "onboard", label: "Onboard", step: "1", hint: "Register an agent", icon: UserPlus },
+  { module: "gateway", label: "AI Gateway", step: "2", hint: "Govern tool calls", icon: Plug },
+  { module: "monitor", label: "Monitor", step: "3", hint: "See what ran", icon: Eye },
+  { module: "governance", label: "Governance", step: "4", hint: "Policy & HITL", icon: Shield },
+  { module: "orchestrators", label: "Orchestrators", step: "5", hint: "Pipelines", icon: Radio },
+  { module: "llm-plane", label: "Model plane", hint: "LLM metrics (separate)", icon: Layers }
+];
+
 export function TopNavigation({
   activeModule,
   onSelectModule,
   apiHealthy,
   onRecheckApi
 }: TopNavigationProps) {
-  const navClass = (module: DashboardModule) => {
-    if (activeModule === module) return "primary-action";
-    if (module === "monitor" && activeModule === "agents") return "primary-action";
-    return activeModule === module ? "nav-active" : "";
+  const isActive = (module: DashboardModule) => {
+    if (activeModule === module) return true;
+    if (module === "monitor" && activeModule === "agents") return true;
+    return false;
   };
 
   const go = (module: DashboardModule) => {
@@ -27,81 +52,45 @@ export function TopNavigation({
 
   return (
     <header className="topbar topbar-clean aegis-topbar">
-      <div>
+      <div className="aegis-topbar-brand">
         <p className="eyebrow">AegisAI</p>
         <h1>Agent Governance Control Plane</h1>
+        <p className="aegis-topbar-tagline">
+          Stop risky agent tool calls before they hit production systems
+        </p>
       </div>
-      <div className="top-actions" aria-disabled={!apiHealthy || undefined}>
-        <button type="button" className={navClass("dashboard")} onClick={() => go("dashboard")}>
-          <LayoutDashboard size={18} />
-          Dashboard
-        </button>
-        <button
-          type="button"
-          className={navClass("monitor")}
-          disabled={!apiHealthy}
-          title={!apiHealthy ? "Available when governance API is ready" : undefined}
-          onClick={() => go("monitor")}
-        >
-          <Eye size={18} />
-          Monitor
-        </button>
-        <button
-          type="button"
-          className={navClass("governance")}
-          disabled={!apiHealthy}
-          title={!apiHealthy ? "Available when governance API is ready" : undefined}
-          onClick={() => go("governance")}
-        >
-          <Shield size={18} />
-          Governance
-        </button>
-        <button
-          type="button"
-          className={navClass("gateway")}
-          disabled={!apiHealthy}
-          title={!apiHealthy ? "Available when governance API is ready" : undefined}
-          onClick={() => go("gateway")}
-        >
-          <Plug size={18} />
-          AI Gateway
-        </button>
-        <button
-          type="button"
-          className={navClass("llm-plane")}
-          disabled={!apiHealthy}
-          title={!apiHealthy ? "Available when governance API is ready" : undefined}
-          onClick={() => go("llm-plane")}
-        >
-          <Layers size={18} />
-          LLM Plane
-        </button>
-        <button
-          type="button"
-          className={activeModule === "orchestrators" ? "nav-active" : ""}
-          disabled={!apiHealthy}
-          title={!apiHealthy ? "Available when governance API is ready" : undefined}
-          onClick={() => go("orchestrators")}
-        >
-          <Radio size={18} />
-          Orchestrators
-        </button>
-        <button
-          type="button"
-          className={navClass("onboard")}
-          disabled={!apiHealthy}
-          title={!apiHealthy ? "Available when governance API is ready" : undefined}
-          onClick={() => go("onboard")}
-        >
-          <UserPlus size={18} />
-          Onboard
-        </button>
+      <nav className="aegis-top-nav" aria-label="Product journey">
+        {NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const active = isActive(item.module);
+          return (
+            <button
+              key={item.module}
+              type="button"
+              className={`aegis-nav-item${active ? " is-active" : ""}`}
+              disabled={!apiHealthy && item.module !== "dashboard"}
+              title={
+                !apiHealthy && item.module !== "dashboard"
+                  ? "Available when governance API is ready"
+                  : item.hint
+              }
+              onClick={() => go(item.module)}
+            >
+              {item.step ? <span className="aegis-nav-step">{item.step}</span> : null}
+              <Icon size={16} aria-hidden />
+              <span className="aegis-nav-label">
+                <strong>{item.label}</strong>
+                <em>{item.hint}</em>
+              </span>
+            </button>
+          );
+        })}
         {!apiHealthy ? (
-          <button type="button" className="btn-secondary" onClick={onRecheckApi}>
+          <button type="button" className="aegis-btn-secondary" onClick={onRecheckApi}>
             Recheck API
           </button>
         ) : null}
-      </div>
+      </nav>
     </header>
   );
 }
