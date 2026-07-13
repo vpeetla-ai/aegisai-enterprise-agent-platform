@@ -27,6 +27,7 @@ export type DashboardModule =
   | "agents"
   | "governance"
   | "gateway"
+  | "llm-plane"
   | "hitl"
   | "finops"
   | "incidents"

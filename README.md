@@ -50,6 +50,8 @@ AegisAI is a **governance control plane**:
 | Component | Status |
 |-----------|--------|
 | AI Gateway (`POST /api/gateway/tool-request`) | ✅ Production |
+| LLM Gateway Plane Control Room | ✅ Tabs for aegis-llm-gateway + semantic-cache ops via BFF (`/api/llm-plane/*`); does **not** proxy completions |
+| Agent registry self-serve | ✅ Onboard wizard + list POST real entries; LLM Plane → Registry tab |
 | Website Build orchestrator + HITL on deploy | ✅ Gateway-integrated |
 | Python gateway SDK (`sdk/python/`) | ✅ |
 | TypeScript reference client (`apps/web/lib/gateway/`) | ✅ In-repo reference (not npm package) |
@@ -75,7 +77,8 @@ AegisAI is a **governance control plane**:
 
 ```text
 Agent fleet → AI Gateway (policy + HITL) → Connectors (GitHub, Vercel, Render, Stripe…)
-           ↘ Control plane UI (dashboard, monitor, governance, onboard)
+           ↘ Control plane UI (dashboard, monitor, governance, LLM Plane, onboard)
+Apps → aegis-llm-gateway (+ semantic cache) → providers   # model plane — separate from tool gateway
 ```
 
 ---

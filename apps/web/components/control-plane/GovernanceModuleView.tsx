@@ -13,6 +13,7 @@ import { ModuleShell } from "@/components/control-plane/ModuleShell";
 import { OrchestratorsPanel } from "@/components/control-plane/OrchestratorsPanel";
 import { WebsiteBuildPanel } from "@/components/control-plane/WebsiteBuildPanel";
 import { AgentOnboardingWizard } from "@/components/control-plane/AgentOnboardingWizard";
+import { LlmPlanePanel } from "@/components/control-plane/LlmPlanePanel";
 import type {
   AgentCloudGovernPayload,
   AgentCloudMonitorPayload,
@@ -34,6 +35,7 @@ const MODULE_TITLES: Record<DashboardModule, string> = {
   agents: "Agents",
   governance: "Governance",
   gateway: "AI Gateway",
+  "llm-plane": "LLM Plane",
   hitl: "HITL queue",
   finops: "FinOps",
   incidents: "Incidents",
@@ -134,6 +136,18 @@ export function GovernanceModuleView(props: GovernanceModuleViewProps) {
     );
   }
 
+  if (activeModule === "llm-plane") {
+    return (
+      <ModuleShell
+        title={title}
+        subtitle="Federated model plane — gateway + cache metrics; self-serve agent registry"
+        onBack={onBack}
+      >
+        <LlmPlanePanel agentRegistry={props.agentRegistry} onRefreshAgents={props.onRefreshAgents} />
+      </ModuleShell>
+    );
+  }
+
   if (activeModule === "orchestrators") {
     const lastWebRun = props.websiteRuns?.runs?.[0] as
       | { run_id: string; status: string; hitl_pending?: boolean; review_deploy?: object }
@@ -161,12 +175,28 @@ export function GovernanceModuleView(props: GovernanceModuleViewProps) {
   }
 
   if (activeModule === "onboard") {
+    const agents = props.agentRegistry?.agents ?? [];
     return (
       <ModuleShell
         title={title}
         subtitle="Register production agents and promote through shadow → approved"
         onBack={onBack}
       >
+        <section className="aegis-card" style={{ marginBottom: "1rem" }}>
+          <h4>Registry ({props.agentRegistry?.summary?.total_agents ?? agents.length})</h4>
+          {agents.length === 0 ? (
+            <p>No agents yet — complete the wizard below to POST a real registry entry.</p>
+          ) : (
+            <ul>
+              {agents.slice(0, 12).map((agent) => (
+                <li key={agent.agent_id}>
+                  <strong>{agent.name}</strong> (<code>{agent.agent_id}</code>) — {agent.status} ·{" "}
+                  {agent.risk_tier}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
         <AgentOnboardingWizard onComplete={() => void props.onRefreshAgents?.()} />
       </ModuleShell>
     );

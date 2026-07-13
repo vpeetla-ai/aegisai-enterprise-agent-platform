@@ -1,4 +1,4 @@
-import { Eye, LayoutDashboard, Plug, Radio, Shield, UserPlus } from "lucide-react";
+import { Eye, LayoutDashboard, Layers, Plug, Radio, Shield, UserPlus } from "lucide-react";
 import type { DashboardModule } from "@/components/control-plane/GovernanceDashboard";
 
 type TopNavigationProps = {
@@ -65,6 +65,16 @@ export function TopNavigation({
         >
           <Plug size={18} />
           AI Gateway
+        </button>
+        <button
+          type="button"
+          className={navClass("llm-plane")}
+          disabled={!apiHealthy}
+          title={!apiHealthy ? "Available when governance API is ready" : undefined}
+          onClick={() => go("llm-plane")}
+        >
+          <Layers size={18} />
+          LLM Plane
         </button>
         <button
           type="button"

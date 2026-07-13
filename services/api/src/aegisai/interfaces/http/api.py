@@ -451,6 +451,8 @@ def root() -> dict[str, object]:
             "GET /api/agent-registry/lifecycle",
             "POST /api/agent-registry/lifecycle",
             "PATCH /api/agent-registry/lifecycle/{agent_id}/status",
+            "GET /api/llm-plane/gateway-metrics",
+            "GET /api/llm-plane/cache-metrics",
             "GET /api/platform/posture",
             "GET /api/platform/gateway-story",
             "GET /api/platform/developer-quickstart",
@@ -1470,6 +1472,22 @@ def ops_metrics_unified() -> dict[str, object]:
         "slo": {"target_uptime_pct": 99.5, "success_target_pct": 95.0},
         "extra": counts,
     }
+
+
+@app.get("/api/llm-plane/gateway-metrics")
+def llm_plane_gateway_metrics() -> dict[str, object]:
+    """Control Room BFF — reads aegis-llm-gateway ops (does not proxy completions)."""
+    from aegisai.product.llm_plane_ops import gateway_ops_payload
+
+    return gateway_ops_payload()
+
+
+@app.get("/api/llm-plane/cache-metrics")
+def llm_plane_cache_metrics() -> dict[str, object]:
+    """Control Room BFF — reads aegis-semantic-cache ops."""
+    from aegisai.product.llm_plane_ops import cache_ops_payload
+
+    return cache_ops_payload()
 
 
 @app.get("/api/control-plane/metrics")
