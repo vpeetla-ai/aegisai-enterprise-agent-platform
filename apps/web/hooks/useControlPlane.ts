@@ -179,7 +179,7 @@ export function useControlPlane() {
         await refreshOrchestrators();
         await refreshAgents();
       }
-      if (module === "onboard" || module === "gateway" || module === "llm-plane") await refreshAgents();
+      if (module === "onboard" || module === "gateway") await refreshAgents();
     },
     [loadAgentCloud, refreshAgents, refreshFinops, refreshIncidents, refreshMetrics, refreshOrchestrators]
   );

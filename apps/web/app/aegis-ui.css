@@ -1312,7 +1312,7 @@
   }
 }
 
-/* ── Product journey UX (Home · nav · Gateway · Model plane) ── */
+/* ── Product journey UX (Home · nav · AI Gateway · LLM metrics) ── */
 
 .aegis-topbar-brand {
   display: grid;
@@ -1330,9 +1330,50 @@
 .aegis-top-nav {
   display: flex;
   flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.aegis-nav-cluster {
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   align-items: stretch;
-  margin-top: 14px;
+}
+
+.aegis-nav-satellite-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-left: 4px;
+  padding-left: 12px;
+  border-left: 1px solid var(--aegis-border);
+}
+
+.aegis-nav-group-label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--aegis-text-subtle);
+  margin-right: 2px;
+}
+
+.aegis-nav-item.is-satellite {
+  background: var(--aegis-surface-muted);
+  border-style: dashed;
+}
+
+.aegis-nav-item.is-satellite.is-active {
+  border-style: solid;
+  background: #eef6f3;
+  border-color: #059669;
+}
+
+.aegis-nav-item.is-satellite.is-active .aegis-nav-label strong {
+  color: #047857;
 }
 
 .aegis-nav-item {
@@ -1726,6 +1767,26 @@
   color: var(--aegis-text-subtle);
 }
 
+.aegis-llm-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.aegis-llm-overview-grid .aegis-link-btn {
+  margin-top: 12px;
+}
+
+.aegis-plain-list {
+  margin: 12px 0 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 8px;
+  color: var(--aegis-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .aegis-muted-line {
   margin: 0;
   font-size: 0.85rem;
@@ -1788,8 +1849,16 @@
 @media (max-width: 960px) {
   .aegis-journey-strip,
   .aegis-gateway-proof-grid,
-  .aegis-metric-tile-grid {
+  .aegis-metric-tile-grid,
+  .aegis-llm-overview-grid {
     grid-template-columns: 1fr;
+  }
+
+  .aegis-nav-satellite-wrap {
+    border-left: none;
+    padding-left: 0;
+    margin-left: 0;
+    width: 100%;
   }
 
   .aegis-nav-label em {

@@ -36,7 +36,7 @@ const MODULE_TITLES: Record<DashboardModule, string> = {
   agents: "Agents",
   governance: "Governance",
   gateway: "AI Gateway",
-  "llm-plane": "Model plane",
+  "llm-plane": "LLM metrics",
   hitl: "HITL queue",
   finops: "FinOps",
   incidents: "Incidents",
@@ -144,11 +144,16 @@ export function GovernanceModuleView(props: GovernanceModuleViewProps) {
   if (activeModule === "llm-plane") {
     return (
       <ModuleShell
-        title="Model plane"
-        subtitle="Optional — LLM gateway + cache metrics (not tool intercept)"
+        title="LLM metrics"
+        subtitle="Optional — model cost & cache dashboard (not tool intercept)"
         onBack={onBack}
       >
-        <LlmPlanePanel agentRegistry={props.agentRegistry} onRefreshAgents={props.onRefreshAgents} />
+        <LlmPlanePanel
+          agentRegistry={props.agentRegistry}
+          onRefreshAgents={props.onRefreshAgents}
+          onOpenOnboard={() => props.onSelectModule("onboard")}
+          onOpenGateway={() => props.onSelectModule("gateway")}
+        />
       </ModuleShell>
     );
   }

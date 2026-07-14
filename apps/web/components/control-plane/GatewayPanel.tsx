@@ -173,11 +173,11 @@ export function GatewayPanel({
       <aside className="aegis-callout aegis-callout-info" role="note">
         <Shield size={18} />
         <div>
-          <strong>Not the same as “Model plane”</strong>
+          <strong>Not the same as “LLM metrics”</strong>
           <p>
-            <em>AI Gateway</em> = tool side effects (deploy / notify / refund).{" "}
-            <em>Model plane</em> = LLM completions + cache metrics. Different planes on purpose
-            (ADR-028).
+            <em>AI Gateway</em> = tool side effects (deploy / notify / refund) — the core product.{" "}
+            <em>LLM metrics</em> = optional cost &amp; cache dashboard for the shared model plane.
+            Different jobs on purpose (ADR-028).
           </p>
         </div>
       </aside>

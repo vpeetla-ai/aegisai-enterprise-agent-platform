@@ -69,5 +69,7 @@ test.describe("Control Room product journey", () => {
     });
     await expect(page.getByRole("button", { name: /HITL queue/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /AI Gateway/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /LLM metrics/i })).toBeVisible();
+    await expect(page.getByText("Optional", { exact: true }).first()).toBeVisible();
   });
 });
