@@ -169,8 +169,13 @@ export function LlmPlanePanel({ onOpenOnboard, onOpenGateway }: LlmPlanePanelPro
               <StatusPill fetch={completions} />
             </div>
             <p className="aegis-muted-line">
-              Service <code>aegis-llm-gateway</code> · mode{" "}
-              <code>{String(gw.control_plane_mode ?? "—")}</code>
+              Service <code>aegis-llm-gateway</code>
+              {gw.control_plane_mode != null ? (
+                <>
+                  {" "}
+                  · upstream mode <code>{String(gw.control_plane_mode)}</code>
+                </>
+              ) : null}
             </p>
             <div className="aegis-metric-tile-grid">
               <MetricTile label="Completions" value={Number(gw.completions ?? 0)} />
@@ -222,8 +227,16 @@ export function LlmPlanePanel({ onOpenOnboard, onOpenGateway }: LlmPlanePanelPro
           ) : (
             <>
               <p className="aegis-muted-line">
-                Upstream service id <code>aegis-llm-gateway</code> (name of the satellite — not the
+                Upstream service id <code>aegis-llm-gateway</code> (satellite model router — not the
                 AegisAI tool AI Gateway).
+                {gw.control_plane_mode != null ? (
+                  <>
+                    {" "}
+                    Upstream mode <code>{String(gw.control_plane_mode)}</code> means how that
+                    service is configured (e.g. stub completions), not whether this dashboard is on
+                    demo fallback.
+                  </>
+                ) : null}
                 {completions?.note ? ` · ${completions.note}` : null}
               </p>
               <div className="aegis-metric-tile-grid">
