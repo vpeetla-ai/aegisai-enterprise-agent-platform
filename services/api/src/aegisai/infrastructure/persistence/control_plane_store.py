@@ -110,6 +110,18 @@ CREATE TABLE IF NOT EXISTS audit_events (
   event_hash TEXT NOT NULL,
   occurred_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS kill_switch_rules (
+  rule_id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  scope_type TEXT NOT NULL,
+  scope_value TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  active INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  deactivated_at TEXT
+);
 """
 
 
@@ -427,11 +439,237 @@ class SQLiteControlPlaneStore:
             "approval_tasks",
             "action_executions",
             "audit_events",
+            "kill_switch_rules",
         }
         if table not in allowed:
             raise ValueError(f"unsupported table: {table}")
         row = self.connection.execute(f"SELECT COUNT(*) AS total FROM {table}").fetchone()
         return int(row["total"])
+
+    def count_approval_tasks(
+        self, tenant_id: str | None = None, *, status: str | None = "pending"
+    ) -> int:
+        clauses: list[str] = []
+        params: list[object] = []
+        if tenant_id:
+            clauses.append("tenant_id = ?")
+            params.append(tenant_id)
+        if status:
+            clauses.append("status = ?")
+            params.append(status)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        row = self.connection.execute(
+            f"SELECT COUNT(*) AS total FROM approval_tasks {where}",
+            tuple(params),
+        ).fetchone()
+        return int(row["total"]) if row else 0
+
+    def list_approval_tasks(
+        self, tenant_id: str, *, status: str | None = "pending"
+    ) -> list[dict[str, object]]:
+        clauses = ["t.tenant_id = ?"]
+        params: list[object] = [tenant_id]
+        if status:
+            clauses.append("t.status = ?")
+            params.append(status)
+        where = " AND ".join(clauses)
+        rows = self.connection.execute(
+            f"""
+            SELECT
+              t.approval_task_id, t.proposal_id, t.tenant_id, t.assigned_role, t.status,
+              t.due_at, t.escalation_path, t.decision_reason, t.decided_by, t.decided_at,
+              p.case_id, p.agent_id, p.action_type, p.target_system, p.amount_usd,
+              d.decision AS governance_decision, d.risk_score, d.risk_level, d.reason_codes
+            FROM approval_tasks t
+            LEFT JOIN action_proposals p ON p.proposal_id = t.proposal_id
+            LEFT JOIN governance_decisions d ON d.proposal_id = t.proposal_id
+            WHERE {where}
+            ORDER BY t.due_at ASC
+            """,
+            tuple(params),
+        ).fetchall()
+        result: list[dict[str, object]] = []
+        for row in rows:
+            item = dict(row)
+            if isinstance(item.get("reason_codes"), str):
+                try:
+                    item["reason_codes"] = json.loads(item["reason_codes"])
+                except json.JSONDecodeError:
+                    item["reason_codes"] = []
+            result.append(item)
+        return result
+
+    def persist_gateway_hitl(
+        self,
+        *,
+        tenant_id: str,
+        case_id: str,
+        proposal_id: str,
+        agent_id: str,
+        action_type: str,
+        target_system: str,
+        tool_name: str,
+        workflow_type: str = "gateway_hitl",
+        approval_role: str = "workflow_owner",
+        business_explanation: str = "",
+        amount_usd: float = 0.0,
+    ) -> dict[str, object]:
+        from aegisai.product.hitl_queue import due_at_iso
+
+        due_at = due_at_iso()
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT OR REPLACE INTO cases (
+                  case_id, tenant_id, requester_user_id, workflow_type, status,
+                  data_classification, customer_impact, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """,
+                (
+                    case_id,
+                    tenant_id,
+                    agent_id,
+                    workflow_type,
+                    "pending_approval",
+                    "internal",
+                    0,
+                ),
+            )
+            self.connection.execute(
+                """
+                INSERT OR REPLACE INTO action_proposals (
+                  proposal_id, case_id, tenant_id, agent_id, action_type, target_system,
+                  amount_usd, data_classification, reversible, customer_impact, idempotency_key
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    proposal_id,
+                    case_id,
+                    tenant_id,
+                    agent_id,
+                    action_type,
+                    target_system,
+                    amount_usd,
+                    "internal",
+                    1,
+                    0,
+                    f"idem-{proposal_id}",
+                ),
+            )
+            self.connection.execute(
+                """
+                INSERT OR REPLACE INTO governance_decisions (
+                  decision_id, proposal_id, tenant_id, decision, risk_score, risk_level,
+                  reason_codes, evaluation_passed, failed_checks, approval_role, policy_version
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    f"decision:{proposal_id}",
+                    proposal_id,
+                    tenant_id,
+                    "approval_required",
+                    70,
+                    "high",
+                    json.dumps(["gateway_hitl", tool_name]),
+                    1,
+                    json.dumps([]),
+                    approval_role,
+                    "gateway-v1",
+                ),
+            )
+            self.connection.execute(
+                """
+                INSERT OR REPLACE INTO approval_tasks (
+                  approval_task_id, proposal_id, tenant_id, assigned_role, status, due_at, escalation_path
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    f"approval:{proposal_id}",
+                    proposal_id,
+                    tenant_id,
+                    approval_role,
+                    "pending",
+                    due_at,
+                    "workflow_owner>senior_domain_approver>compliance",
+                ),
+            )
+        self.append_audit_event(
+            tenant_id=tenant_id,
+            case_id=case_id,
+            event_type="hitl.task_created",
+            subject_id=proposal_id,
+            actor_id=agent_id,
+            payload={
+                "tool_name": tool_name,
+                "action_type": action_type,
+                "target_system": target_system,
+                "explanation": business_explanation,
+            },
+        )
+        return {
+            "case_id": case_id,
+            "proposal_id": proposal_id,
+            "approval_task_id": f"approval:{proposal_id}",
+            "status": "pending",
+            "tool_name": tool_name,
+        }
+
+    def list_kill_switch_rules(self) -> list[dict[str, object]]:
+        rows = self.connection.execute(
+            "SELECT * FROM kill_switch_rules ORDER BY created_at DESC"
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def upsert_kill_switch_rule(self, rule: dict[str, object]) -> None:
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT OR REPLACE INTO kill_switch_rules (
+                  rule_id, tenant_id, scope_type, scope_value, reason, created_by,
+                  active, created_at, deactivated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    rule["rule_id"],
+                    rule.get("tenant_id", "bank-demo"),
+                    rule["scope_type"],
+                    rule["scope_value"],
+                    rule["reason"],
+                    rule["created_by"],
+                    int(bool(rule["active"])),
+                    rule["created_at"],
+                    rule.get("deactivated_at"),
+                ),
+            )
+
+    def deactivate_kill_switch_rule(self, rule_id: str) -> dict[str, object] | None:
+        row = self.connection.execute(
+            "SELECT * FROM kill_switch_rules WHERE rule_id = ?",
+            (rule_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        from datetime import UTC, datetime
+
+        deactivated_at = datetime.now(UTC).isoformat()
+        with self.connection:
+            self.connection.execute(
+                """
+                UPDATE kill_switch_rules
+                SET active = 0, deactivated_at = ?
+                WHERE rule_id = ?
+                """,
+                (deactivated_at, rule_id),
+            )
+        updated = dict(row)
+        updated["active"] = 0
+        updated["deactivated_at"] = deactivated_at
+        return updated
 
     def list_recent_audit_events(self, tenant_id: str, *, limit: int = 20) -> list[dict[str, object]]:
         return self._many(

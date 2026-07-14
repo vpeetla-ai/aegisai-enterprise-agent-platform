@@ -82,6 +82,42 @@ class IdentityRBACService:
                 "publish.medium",
                 "publish.substack",
                 "publish.instagram",
+                "notify.slack_publish",
+                "notify.telegram_publish",
+            ),
+        ),
+        "website-build-pipeline": Principal(
+            principal_id="website-build-pipeline",
+            tenant_id="bank-demo",
+            roles=("workflow_owner", "execution_broker"),
+            allowed_tools=(
+                "deploy.vercel_release",
+                "deploy.render_release",
+                "github.create_pull_request",
+                "github.push_files",
+            ),
+        ),
+        "ai-content-pipeline": Principal(
+            principal_id="ai-content-pipeline",
+            tenant_id="bank-demo",
+            roles=("workflow_owner", "execution_broker"),
+            allowed_tools=("notify.slack_publish", "notify.telegram_publish", "publish.linkedin"),
+        ),
+        "stock-research-pipeline": Principal(
+            principal_id="stock-research-pipeline",
+            tenant_id="bank-demo",
+            roles=("workflow_owner", "execution_broker"),
+            allowed_tools=("notify.slack_publish", "notify.telegram_publish"),
+        ),
+        "control-plane-admin": Principal(
+            principal_id="control-plane-admin",
+            tenant_id="bank-demo",
+            roles=("workflow_owner", "senior_domain_approver", "admin", "reviewer"),
+            allowed_tools=(
+                "deploy.vercel_release",
+                "deploy.render_release",
+                "notify.slack_publish",
+                "payments.issue_refund",
             ),
         ),
     }

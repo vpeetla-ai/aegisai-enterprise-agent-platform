@@ -373,10 +373,13 @@ class WebsiteBuildLangGraph:
         if self._gateway_fn is None:
             return {
                 "tool_name": tool_name,
+                "agent_id": agent_id,
+                "action_type": action_type,
+                "target_system": target_system,
                 "gateway_decision": "approval_required",
                 "business_explanation": "Gateway callback not wired — defaulting to HITL.",
             }
-        return self._gateway_fn(
+        result = self._gateway_fn(
             tenant_id="bank-demo",
             agent_id=agent_id,
             principal_id="website-build-pipeline",
@@ -388,6 +391,13 @@ class WebsiteBuildLangGraph:
             reversible=True,
             customer_impact=False,
         )
+        return {
+            **result,
+            "agent_id": agent_id,
+            "action_type": action_type,
+            "target_system": target_system,
+            "tool_name": tool_name,
+        }
 
     @staticmethod
     def _to_graph(state: WebsiteBuildState) -> WebsiteGraphState:
@@ -437,6 +447,7 @@ class WebsiteBuildOrchestrator:
         finops_client: FinOpsClient | None = None,
         agent_registry: AgentRegistryService | None = None,
         kill_switch_service: KillSwitchService | None = None,
+        hitl_persist_fn: Callable[..., dict[str, Any] | None] | None = None,
     ) -> None:
         self._graph = WebsiteBuildLangGraph(
             gateway_fn=gateway_fn,
@@ -446,6 +457,7 @@ class WebsiteBuildOrchestrator:
             kill_switch_service=kill_switch_service,
         )
         self._observability = observability
+        self._hitl_persist_fn = hitl_persist_fn
         self._runs: list[dict[str, Any]] = []
 
     def run(
@@ -464,6 +476,24 @@ class WebsiteBuildOrchestrator:
             started_at=datetime.now(UTC).isoformat(),
         )
         state = self._graph.invoke(state)
+        hitl_tasks: list[dict[str, Any]] = []
+        if state.hitl_pending and self._hitl_persist_fn is not None:
+            for event in state.gateway_events:
+                if event.get("gateway_decision") != "approval_required":
+                    continue
+                task = self._hitl_persist_fn(
+                    tenant_id=tenant_id,
+                    run_id=state.run_id,
+                    agent_id=str(event.get("agent_id") or "agent-review-deploy"),
+                    tool_name=str(event.get("tool_name") or "deploy.vercel_release"),
+                    action_type=str(event.get("action_type") or "deploy_frontend"),
+                    target_system=str(event.get("target_system") or "vercel"),
+                    workflow_type="website_build",
+                    gateway_decision="approval_required",
+                    business_explanation=str(event.get("business_explanation") or ""),
+                )
+                if task:
+                    hitl_tasks.append(task)
         payload = {
             "orchestrator_id": self.ORCHESTRATOR_ID,
             "run_id": state.run_id,
@@ -477,6 +507,7 @@ class WebsiteBuildOrchestrator:
             "review_deploy": state.review_deploy,
             "gateway_events": state.gateway_events,
             "hitl_pending": state.hitl_pending,
+            "hitl_tasks": hitl_tasks,
             "agent_traces": state.agent_traces,
             "completed_at": datetime.now(UTC).isoformat(),
         }

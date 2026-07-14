@@ -30,7 +30,7 @@ from aegisai.domain import DataClassification, ExecutionCommand, ExecutionResult
 from aegisai.infrastructure.persistence import build_control_plane_store
 from aegisai.infrastructure.persistence.factory import build_agent_registry_service
 from aegisai.interfaces.http.auth import AuthRequired, ReviewerAuthRequired, auth_posture
-from aegisai.interfaces.http.enforcement import pilot_mode, require_execution_token
+from aegisai.interfaces.http.enforcement import pilot_mode, pilot_posture, production_strict, require_execution_token
 from aegisai.product.gateway_metrics import GatewayMetricsService
 from aegisai.product.audit_signing import AuditPacketSigner
 from aegisai.observability import build_default_observability_service
@@ -53,6 +53,7 @@ from aegisai.product import (
     SlackApprovalService,
     UndoRequest,
 )
+from aegisai.product.hitl_queue import HitlQueueService
 
 
 class AgentRunRequest(BaseModel):
@@ -247,7 +248,8 @@ execution_token_service = ExecutionTokenService()
 agent_registry_service = build_agent_registry_service()
 policy_simulator_service = PolicySimulatorService()
 identity_service = IdentityRBACService()
-kill_switch_service = KillSwitchService()
+kill_switch_service = KillSwitchService(store=control_plane_store)
+hitl_queue_service = HitlQueueService(store=control_plane_store)
 golden_eval_service = GoldenEvalService()
 red_team_eval_service = RedTeamEvalService()
 finops_service = FinOpsService(agent_registry_service)
@@ -276,8 +278,6 @@ dashboard_service = DashboardService(
     finops=finops_service,
     kill_switch=kill_switch_service,
 )
-ai_content_orchestrator = AIContentPipelineOrchestrator()
-stock_research_orchestrator = StockResearchOrchestrator()
 
 
 def _website_gateway_decision(**kwargs: object) -> dict[str, object]:
@@ -306,11 +306,20 @@ def _website_gateway_decision(**kwargs: object) -> dict[str, object]:
     return platform_control_plane_service.gateway_decision(request)
 
 
+ai_content_orchestrator = AIContentPipelineOrchestrator(
+    gateway_fn=_website_gateway_decision,
+    hitl_persist_fn=hitl_queue_service.persist_from_gateway_event,
+)
+stock_research_orchestrator = StockResearchOrchestrator(
+    gateway_fn=_website_gateway_decision,
+    hitl_persist_fn=hitl_queue_service.persist_from_gateway_event,
+)
 website_build_orchestrator = WebsiteBuildOrchestrator(
     gateway_fn=_website_gateway_decision,
     observability=observability_service,
     agent_registry=agent_registry_service,
     kill_switch_service=kill_switch_service,
+    hitl_persist_fn=hitl_queue_service.persist_from_gateway_event,
 )
 cors_origins = [
     origin.strip()
@@ -430,7 +439,9 @@ def health() -> dict[str, object]:
         "enforcement": {
             "require_execution_token": require_execution_token(),
             "pilot_mode": pilot_mode(),
+            "production_strict": production_strict(),
             "recommended_persistence": "postgres" if pilot_mode() else "sqlite",
+            "pilot_profile": pilot_posture(),
         },
     }
 
@@ -990,6 +1001,7 @@ def gateway_tool_request(
         },
     )
     token = None
+    hitl_task = None
     if decision_payload.get("gateway_decision") == "allow":
         token = execution_token_service.issue(
             tenant_id=payload.tenant_id,
@@ -998,11 +1010,25 @@ def gateway_tool_request(
             gateway_decision="allow",
             proposal_id=payload.proposal_id,
         )
+    elif decision_payload.get("gateway_decision") == "approval_required":
+        hitl_task = hitl_queue_service.persist_from_gateway_event(
+            tenant_id=payload.tenant_id,
+            run_id=case_id.replace("gateway-", "gw-"),
+            agent_id=payload.agent_id,
+            tool_name=payload.tool_name,
+            action_type=payload.action_type,
+            target_system=payload.target_system,
+            workflow_type="gateway_tool_request",
+            gateway_decision="approval_required",
+            business_explanation=str(decision_payload.get("business_explanation") or ""),
+        )
     return {
         **decision_payload,
         "execution_token": token,
         "principal_id": principal_id,
-        "case_id": case_id,
+        "case_id": case_id if hitl_task is None else hitl_task.get("case_id", case_id),
+        "proposal_id": None if hitl_task is None else hitl_task.get("proposal_id"),
+        "hitl_task": hitl_task,
     }
 
 
@@ -1180,6 +1206,11 @@ def kill_switches() -> dict[str, object]:
     return kill_switch_service.posture()
 
 
+@app.get("/api/hitl/queue")
+def hitl_queue(tenant_id: str = "bank-demo", status: str = "pending") -> dict[str, object]:
+    return hitl_queue_service.queue(tenant_id=tenant_id, status=status)
+
+
 @app.get("/api/incidents/timeline")
 def incident_timeline() -> dict[str, object]:
     return kill_switch_service.incident_timeline()
@@ -1278,6 +1309,18 @@ def activate_kill_switch(payload: KillSwitchRequest, auth: AuthRequired) -> dict
     )
     return {
         "status": "activated",
+        "rule": kill_switch_service._payload(rule),
+        "posture": kill_switch_service.posture(),
+    }
+
+
+@app.post("/api/kill-switches/{rule_id}/deactivate")
+def deactivate_kill_switch(rule_id: str, auth: AuthRequired) -> dict[str, object]:
+    rule = kill_switch_service.deactivate(rule_id)
+    if rule is None:
+        raise HTTPException(status_code=404, detail="Kill switch rule not found")
+    return {
+        "status": "deactivated",
         "rule": kill_switch_service._payload(rule),
         "posture": kill_switch_service.posture(),
     }

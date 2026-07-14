@@ -311,13 +311,15 @@ class PlatformControlPlaneService:
             "publish.medium",
             "publish.substack",
             "publish.instagram",
+            "notify.slack_publish",
+            "notify.telegram_publish",
         }
         if request.tool_name in publish_tools:
             gateway_decision = "approval_required"
             simulation = {
                 **simulation,
                 "decision": "human_approval",
-                "explanation": "Social publish side effects require human approval.",
+                "explanation": "Publish / notify side effects require human approval.",
             }
         steps = ["authorize_identity", "score_risk", "evaluate_policy"]
         if gateway_decision == "allow":

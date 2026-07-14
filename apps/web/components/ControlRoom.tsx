@@ -78,6 +78,7 @@ export function ControlRoom() {
           onLoadAgentCloud={() => void cp.loadAgentCloud()}
           onUndo={(id) => void cp.undoAgentAction(id)}
           incidentTimeline={cp.incidentTimeline}
+          onRefreshIncidents={() => void cp.refreshIncidents()}
         />
         )}
       </ApiHealthGate>

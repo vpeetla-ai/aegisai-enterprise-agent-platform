@@ -428,11 +428,244 @@ class PostgresControlPlaneStore:
             "approval_tasks",
             "action_executions",
             "audit_events",
+            "kill_switch_rules",
         }
         if table not in allowed:
             raise ValueError(f"unsupported table: {table}")
         row = self._one(f"SELECT COUNT(*) AS total FROM {table}", ())
         return int(row["total"]) if row else 0
+
+    def count_approval_tasks(
+        self, tenant_id: str | None = None, *, status: str | None = "pending"
+    ) -> int:
+        clauses: list[str] = []
+        params: list[object] = []
+        if tenant_id:
+            clauses.append("tenant_id = %s")
+            params.append(tenant_id)
+        if status:
+            clauses.append("status = %s")
+            params.append(status)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        row = self._one(f"SELECT COUNT(*) AS total FROM approval_tasks {where}", tuple(params))
+        return int(row["total"]) if row else 0
+
+    def list_approval_tasks(
+        self, tenant_id: str, *, status: str | None = "pending"
+    ) -> list[dict[str, object]]:
+        clauses = ["t.tenant_id = %s"]
+        params: list[object] = [tenant_id]
+        if status:
+            clauses.append("t.status = %s")
+            params.append(status)
+        where = " AND ".join(clauses)
+        rows = self._many(
+            f"""
+            SELECT
+              t.approval_task_id, t.proposal_id, t.tenant_id, t.assigned_role, t.status,
+              t.due_at, t.escalation_path, t.decision_reason, t.decided_by, t.decided_at,
+              p.case_id, p.agent_id, p.action_type, p.target_system, p.amount_usd,
+              d.decision AS governance_decision, d.risk_score, d.risk_level, d.reason_codes
+            FROM approval_tasks t
+            LEFT JOIN action_proposals p ON p.proposal_id = t.proposal_id
+            LEFT JOIN governance_decisions d ON d.proposal_id = t.proposal_id
+            WHERE {where}
+            ORDER BY t.due_at ASC
+            """,
+            tuple(params),
+        )
+        for item in rows:
+            if isinstance(item.get("reason_codes"), str):
+                try:
+                    item["reason_codes"] = json.loads(item["reason_codes"])
+                except json.JSONDecodeError:
+                    item["reason_codes"] = []
+        return rows
+
+    def persist_gateway_hitl(
+        self,
+        *,
+        tenant_id: str,
+        case_id: str,
+        proposal_id: str,
+        agent_id: str,
+        action_type: str,
+        target_system: str,
+        tool_name: str,
+        workflow_type: str = "gateway_hitl",
+        approval_role: str = "workflow_owner",
+        business_explanation: str = "",
+        amount_usd: float = 0.0,
+    ) -> dict[str, object]:
+        from aegisai.product.hitl_queue import due_at_iso
+
+        due_at = due_at_iso()
+        with self._connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO cases (
+                      case_id, tenant_id, requester_user_id, workflow_type, status,
+                      data_classification, customer_impact, updated_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                    ON CONFLICT (case_id) DO UPDATE SET
+                      status = EXCLUDED.status,
+                      updated_at = NOW()
+                    """,
+                    (
+                        case_id,
+                        tenant_id,
+                        agent_id,
+                        workflow_type,
+                        "pending_approval",
+                        "internal",
+                        False,
+                    ),
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO action_proposals (
+                      proposal_id, case_id, tenant_id, agent_id, action_type, target_system,
+                      amount_usd, data_classification, reversible, customer_impact, idempotency_key
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (proposal_id) DO UPDATE SET action_type = EXCLUDED.action_type
+                    """,
+                    (
+                        proposal_id,
+                        case_id,
+                        tenant_id,
+                        agent_id,
+                        action_type,
+                        target_system,
+                        amount_usd,
+                        "internal",
+                        True,
+                        False,
+                        f"idem-{proposal_id}",
+                    ),
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO governance_decisions (
+                      decision_id, proposal_id, tenant_id, decision, risk_score, risk_level,
+                      reason_codes, evaluation_passed, failed_checks, approval_role, policy_version
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (decision_id) DO UPDATE SET decision = EXCLUDED.decision
+                    """,
+                    (
+                        f"decision:{proposal_id}",
+                        proposal_id,
+                        tenant_id,
+                        "approval_required",
+                        70,
+                        "high",
+                        json.dumps(["gateway_hitl", tool_name]),
+                        True,
+                        json.dumps([]),
+                        approval_role,
+                        "gateway-v1",
+                    ),
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO approval_tasks (
+                      approval_task_id, proposal_id, tenant_id, assigned_role, status, due_at, escalation_path
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (approval_task_id) DO UPDATE SET status = EXCLUDED.status
+                    """,
+                    (
+                        f"approval:{proposal_id}",
+                        proposal_id,
+                        tenant_id,
+                        approval_role,
+                        "pending",
+                        due_at,
+                        "workflow_owner>senior_domain_approver>compliance",
+                    ),
+                )
+            connection.commit()
+        self.append_audit_event(
+            tenant_id=tenant_id,
+            case_id=case_id,
+            event_type="hitl.task_created",
+            subject_id=proposal_id,
+            actor_id=agent_id,
+            payload={
+                "tool_name": tool_name,
+                "action_type": action_type,
+                "target_system": target_system,
+                "explanation": business_explanation,
+            },
+        )
+        return {
+            "case_id": case_id,
+            "proposal_id": proposal_id,
+            "approval_task_id": f"approval:{proposal_id}",
+            "status": "pending",
+            "tool_name": tool_name,
+        }
+
+    def list_kill_switch_rules(self) -> list[dict[str, object]]:
+        return self._many(
+            "SELECT * FROM kill_switch_rules ORDER BY created_at DESC",
+            (),
+        )
+
+    def upsert_kill_switch_rule(self, rule: dict[str, object]) -> None:
+        with self._connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO kill_switch_rules (
+                      rule_id, tenant_id, scope_type, scope_value, reason, created_by,
+                      active, created_at, deactivated_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (rule_id) DO UPDATE SET
+                      active = EXCLUDED.active,
+                      deactivated_at = EXCLUDED.deactivated_at,
+                      reason = EXCLUDED.reason
+                    """,
+                    (
+                        rule["rule_id"],
+                        rule.get("tenant_id", "bank-demo"),
+                        rule["scope_type"],
+                        rule["scope_value"],
+                        rule["reason"],
+                        rule["created_by"],
+                        bool(rule["active"]),
+                        rule["created_at"],
+                        rule.get("deactivated_at"),
+                    ),
+                )
+            connection.commit()
+
+    def deactivate_kill_switch_rule(self, rule_id: str) -> dict[str, object] | None:
+        row = self._one("SELECT * FROM kill_switch_rules WHERE rule_id = %s", (rule_id,))
+        if row is None:
+            return None
+        from datetime import UTC, datetime
+
+        deactivated_at = datetime.now(UTC).isoformat()
+        with self._connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE kill_switch_rules
+                    SET active = FALSE, deactivated_at = %s
+                    WHERE rule_id = %s
+                    """,
+                    (deactivated_at, rule_id),
+                )
+            connection.commit()
+        updated = dict(row)
+        updated["active"] = False
+        updated["deactivated_at"] = deactivated_at
+        return updated
 
     def list_recent_audit_events(self, tenant_id: str, *, limit: int = 20) -> list[dict[str, object]]:
         return self._many(

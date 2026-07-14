@@ -42,7 +42,10 @@ class DashboardService:
         gateway = self._gateway.snapshot(tenant_id)
         finops = self._finops.dashboard()
         freezes = int(self._kill_switch.posture()["active_rule_count"])
-        pending_hitl = self._store.count("approval_tasks")
+        if hasattr(self._store, "count_approval_tasks"):
+            pending_hitl = self._store.count_approval_tasks(tenant_id, status="pending")  # type: ignore[attr-defined]
+        else:
+            pending_hitl = self._store.count("approval_tasks")
         open_incidents = int(registry["open_incidents"])
 
         tiles = [

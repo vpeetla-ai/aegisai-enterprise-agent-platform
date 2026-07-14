@@ -5,6 +5,8 @@ import {
   Plug,
   Radio,
   Shield,
+  Snowflake,
+  UserCheck,
   UserPlus
 } from "lucide-react";
 import type { DashboardModule } from "@/components/control-plane/GovernanceDashboard";
@@ -28,8 +30,10 @@ const NAV_ITEMS: Array<{
   { module: "onboard", label: "Onboard", step: "1", hint: "Register an agent", icon: UserPlus },
   { module: "gateway", label: "AI Gateway", step: "2", hint: "Govern tool calls", icon: Plug },
   { module: "monitor", label: "Monitor", step: "3", hint: "See what ran", icon: Eye },
-  { module: "governance", label: "Governance", step: "4", hint: "Policy & HITL", icon: Shield },
-  { module: "orchestrators", label: "Orchestrators", step: "5", hint: "Pipelines", icon: Radio },
+  { module: "hitl", label: "HITL queue", step: "4", hint: "Approve side effects", icon: UserCheck },
+  { module: "governance", label: "Governance", step: "5", hint: "Policy & coverage", icon: Shield },
+  { module: "incidents", label: "Incidents", hint: "Kill switch freeze", icon: Snowflake },
+  { module: "orchestrators", label: "Orchestrators", step: "6", hint: "Pipelines", icon: Radio },
   { module: "llm-plane", label: "Model plane", hint: "LLM metrics (separate)", icon: Layers }
 ];
 

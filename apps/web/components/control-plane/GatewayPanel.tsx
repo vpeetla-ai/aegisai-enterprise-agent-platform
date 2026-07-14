@@ -20,6 +20,7 @@ type GatewayPanelProps = {
   isLoading: boolean;
   onOpenOnboard?: () => void;
   onOpenMonitor?: () => void;
+  onOpenHitl?: () => void;
 };
 
 const FLOW_STEPS = [
@@ -58,7 +59,7 @@ function decisionCopy(decision: string | undefined): {
       body: "Policy passed. The agent may proceed with a short-lived execution token."
     };
   }
-  if (d.includes("hitl") || d.includes("pending") || d.includes("review")) {
+  if (d.includes("hitl") || d.includes("pending") || d.includes("review") || d.includes("approval")) {
     return {
       tone: "hitl",
       title: "Needs a human",
@@ -85,7 +86,8 @@ export function GatewayPanel({
   onRefreshMetrics,
   isLoading,
   onOpenOnboard,
-  onOpenMonitor
+  onOpenMonitor,
+  onOpenHitl
 }: GatewayPanelProps) {
   const [story, setStory] = useState<GatewayStory | null>(null);
   const [testResult, setTestResult] = useState<GatewayPayload | null>(null);
@@ -227,9 +229,13 @@ export function GatewayPanel({
                 <button
                   type="button"
                   className="aegis-link-btn"
-                  onClick={() => onOpenMonitor?.()}
+                  onClick={() =>
+                    verdict.tone === "hitl" ? onOpenHitl?.() : onOpenMonitor?.()
+                  }
                 >
-                  See related activity in Monitor →
+                  {verdict.tone === "hitl"
+                    ? "Open HITL queue to approve →"
+                    : "See related activity in Monitor →"}
                 </button>
               </div>
             </div>
@@ -286,6 +292,12 @@ export function GatewayPanel({
                 if you have not registered one yet
               </li>
               <li>Run the sample intercept above</li>
+              <li>
+                <button type="button" className="aegis-link-btn" onClick={() => onOpenHitl?.()}>
+                  Open HITL queue
+                </button>{" "}
+                if the verdict needs a human
+              </li>
               <li>
                 <button type="button" className="aegis-link-btn" onClick={() => onOpenMonitor?.()}>
                   Open Monitor

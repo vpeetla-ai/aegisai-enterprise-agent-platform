@@ -14,6 +14,7 @@ import { OrchestratorsPanel } from "@/components/control-plane/OrchestratorsPane
 import { WebsiteBuildPanel } from "@/components/control-plane/WebsiteBuildPanel";
 import { AgentOnboardingWizard } from "@/components/control-plane/AgentOnboardingWizard";
 import { LlmPlanePanel } from "@/components/control-plane/LlmPlanePanel";
+import { HitlQueuePanel } from "@/components/control-plane/HitlQueuePanel";
 import type {
   AgentCloudGovernPayload,
   AgentCloudMonitorPayload,
@@ -76,6 +77,7 @@ type GovernanceModuleViewProps = {
   onLoadAgentCloud: () => void;
   onUndo: (executionId: string) => void;
   incidentTimeline: IncidentTimelinePayload | null;
+  onRefreshIncidents: () => void;
 };
 
 export function GovernanceModuleView(props: GovernanceModuleViewProps) {
@@ -133,6 +135,7 @@ export function GovernanceModuleView(props: GovernanceModuleViewProps) {
           isLoading={props.isLoadingAgentCloud}
           onOpenOnboard={() => props.onSelectModule("onboard")}
           onOpenMonitor={() => props.onSelectModule("monitor")}
+          onOpenHitl={() => props.onSelectModule("hitl")}
         />
       </ModuleShell>
     );
@@ -235,14 +238,26 @@ export function GovernanceModuleView(props: GovernanceModuleViewProps) {
     );
   }
 
-  if (activeModule === "hitl" || activeModule === "incidents") {
+  if (activeModule === "hitl") {
     return (
       <ModuleShell
         title={title}
-        subtitle={activeModule === "hitl" ? "Approval queue and reviewer path" : "Freeze and remediate"}
+        subtitle="Approve or reject pending tool side effects"
         onBack={onBack}
       >
-        <IncidentsModulePanel incident={props.incidentTimeline} />
+        <HitlQueuePanel apiHealthy={props.apiHealthy} />
+      </ModuleShell>
+    );
+  }
+
+  if (activeModule === "incidents") {
+    return (
+      <ModuleShell title={title} subtitle="Freeze and remediate" onBack={onBack}>
+        <IncidentsModulePanel
+          incident={props.incidentTimeline}
+          apiHealthy={props.apiHealthy}
+          onRefreshIncident={props.onRefreshIncidents}
+        />
       </ModuleShell>
     );
   }

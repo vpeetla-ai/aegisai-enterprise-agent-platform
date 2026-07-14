@@ -2,7 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any, Protocol
 from uuid import uuid4
+
+
+class KillSwitchStore(Protocol):
+    def list_kill_switch_rules(self) -> list[dict[str, Any]]: ...
+
+    def upsert_kill_switch_rule(self, rule: dict[str, Any]) -> None: ...
+
+    def deactivate_kill_switch_rule(self, rule_id: str) -> dict[str, Any] | None: ...
 
 
 @dataclass(frozen=True)
@@ -14,13 +23,61 @@ class KillSwitchRule:
     created_by: str
     active: bool
     created_at: str
+    tenant_id: str = "bank-demo"
+    deactivated_at: str | None = None
 
 
 class KillSwitchService:
-    """In-memory emergency stop control for agents, tools, tenants, and workflows."""
+    """Emergency stop control for agents, tools, tenants, and workflows.
 
-    def __init__(self) -> None:
+    Persists to the control-plane store when provided; otherwise in-memory only.
+    """
+
+    def __init__(self, store: KillSwitchStore | None = None) -> None:
+        self._store = store
         self._rules: dict[str, KillSwitchRule] = {}
+        if store is not None:
+            self._load_from_store()
+
+    def _load_from_store(self) -> None:
+        assert self._store is not None
+        for row in self._store.list_kill_switch_rules():
+            rule = self._from_row(row)
+            self._rules[rule.rule_id] = rule
+
+    @staticmethod
+    def _from_row(row: dict[str, Any]) -> KillSwitchRule:
+        active = row.get("active")
+        if isinstance(active, int):
+            active = bool(active)
+        return KillSwitchRule(
+            rule_id=str(row["rule_id"]),
+            tenant_id=str(row.get("tenant_id", "bank-demo")),
+            scope_type=str(row["scope_type"]),
+            scope_value=str(row["scope_value"]),
+            reason=str(row["reason"]),
+            created_by=str(row["created_by"]),
+            active=bool(active),
+            created_at=str(row["created_at"]),
+            deactivated_at=str(row["deactivated_at"]) if row.get("deactivated_at") else None,
+        )
+
+    def _persist(self, rule: KillSwitchRule) -> None:
+        if self._store is None:
+            return
+        self._store.upsert_kill_switch_rule(
+            {
+                "rule_id": rule.rule_id,
+                "tenant_id": rule.tenant_id,
+                "scope_type": rule.scope_type,
+                "scope_value": rule.scope_value,
+                "reason": rule.reason,
+                "created_by": rule.created_by,
+                "active": rule.active,
+                "created_at": rule.created_at,
+                "deactivated_at": rule.deactivated_at,
+            }
+        )
 
     def activate(
         self,
@@ -28,11 +85,13 @@ class KillSwitchService:
         scope_value: str,
         reason: str,
         created_by: str,
+        tenant_id: str = "bank-demo",
     ) -> KillSwitchRule:
         if scope_type not in {"agent", "tool", "tenant", "workflow"}:
             raise ValueError("scope_type must be agent, tool, tenant, or workflow")
         rule = KillSwitchRule(
             rule_id=f"kill-{uuid4()}",
+            tenant_id=tenant_id,
             scope_type=scope_type,
             scope_value=scope_value,
             reason=reason,
@@ -41,22 +100,34 @@ class KillSwitchService:
             created_at=datetime.now(UTC).isoformat(),
         )
         self._rules[rule.rule_id] = rule
+        self._persist(rule)
         return rule
 
     def deactivate(self, rule_id: str) -> KillSwitchRule | None:
+        if self._store is not None:
+            row = self._store.deactivate_kill_switch_rule(rule_id)
+            if row is None and rule_id not in self._rules:
+                return None
+            if row is not None:
+                updated = self._from_row(row)
+                self._rules[rule_id] = updated
+                return updated
         rule = self._rules.get(rule_id)
         if rule is None:
             return None
         updated = KillSwitchRule(
             rule_id=rule.rule_id,
+            tenant_id=rule.tenant_id,
             scope_type=rule.scope_type,
             scope_value=rule.scope_value,
             reason=rule.reason,
             created_by=rule.created_by,
             active=False,
             created_at=rule.created_at,
+            deactivated_at=datetime.now(UTC).isoformat(),
         )
         self._rules[rule_id] = updated
+        self._persist(updated)
         return updated
 
     def active_rules(self) -> tuple[KillSwitchRule, ...]:
@@ -86,6 +157,7 @@ class KillSwitchService:
             "product_module": "Incident Response",
             "active_rule_count": len(active),
             "rules": [self._payload(rule) for rule in self._rules.values()],
+            "persisted": self._store is not None,
         }
 
     def incident_timeline(self) -> dict[str, object]:
@@ -140,10 +212,12 @@ class KillSwitchService:
     def _payload(rule: KillSwitchRule) -> dict[str, object]:
         return {
             "rule_id": rule.rule_id,
+            "tenant_id": rule.tenant_id,
             "scope_type": rule.scope_type,
             "scope_value": rule.scope_value,
             "reason": rule.reason,
             "created_by": rule.created_by,
             "active": rule.active,
             "created_at": rule.created_at,
+            "deactivated_at": rule.deactivated_at,
         }

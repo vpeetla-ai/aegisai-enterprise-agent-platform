@@ -144,7 +144,7 @@ export function GovernanceDashboard({
           { n: "1", label: "Onboard", detail: "Register an agent", module: "onboard" as DashboardModule },
           { n: "2", label: "AI Gateway", detail: "Try a tool intercept", module: "gateway" as DashboardModule },
           { n: "3", label: "Monitor", detail: "See the audit trail", module: "monitor" as DashboardModule },
-          { n: "4", label: "Governance", detail: "Policy & HITL queue", module: "governance" as DashboardModule }
+          { n: "4", label: "HITL queue", detail: "Approve side effects", module: "hitl" as DashboardModule }
         ].map((step) => (
           <li key={step.n}>
             <button

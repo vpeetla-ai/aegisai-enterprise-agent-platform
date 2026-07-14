@@ -10,11 +10,14 @@ import json
 import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Callable
 from uuid import uuid4
 
 from aegisai.application.knowledge.llm_gateway import LLMGateway
 from aegisai.infrastructure.notifications.delivery import NotificationDeliveryService
+
+GatewayFn = Callable[..., dict[str, object]]
+HitlPersistFn = Callable[..., dict[str, Any] | None]
 
 FOCUS_AREAS = (
     "Enterprise AI platforms",
@@ -42,6 +45,8 @@ class PipelineState:
     topics: list[dict[str, Any]] = field(default_factory=list)
     slack_delivery: dict[str, Any] = field(default_factory=dict)
     agent_traces: list[dict[str, Any]] = field(default_factory=list)
+    gateway_events: list[dict[str, Any]] = field(default_factory=list)
+    hitl_tasks: list[dict[str, Any]] = field(default_factory=list)
     status: str = "running"
 
 
@@ -143,11 +148,73 @@ class TopicArchitectAgent:
 
 
 class PublisherAgent:
-    """Delivers topic pipeline to Slack channel."""
+    """Delivers topic pipeline to Slack channel — gated by AI Gateway."""
+
+    def __init__(
+        self,
+        gateway_fn: GatewayFn | None = None,
+        hitl_persist_fn: HitlPersistFn | None = None,
+    ) -> None:
+        self._gateway_fn = gateway_fn
+        self._hitl_persist_fn = hitl_persist_fn
 
     def run(self, state: PipelineState) -> PipelineState:
         state.agent_traces.append({"agent": "publisher", "step": "slack_delivery", "status": "active"})
         blocks = _format_slack_message(state)
+        gateway_event: dict[str, Any] = {"tool_name": "notify.slack_publish"}
+        if self._gateway_fn is not None:
+            decision = self._gateway_fn(
+                tenant_id=state.tenant_id,
+                agent_id="agent-content-publisher",
+                principal_id="ai-content-pipeline",
+                tool_name="notify.slack_publish",
+                action_type="notify_slack",
+                target_system="slack",
+                amount_usd=0,
+                reversible=True,
+                customer_impact=False,
+            )
+            gateway_event = {
+                "tool_name": "notify.slack_publish",
+                "gateway_decision": decision.get("gateway_decision"),
+                "business_explanation": decision.get("business_explanation"),
+            }
+            state.gateway_events.append(gateway_event)
+            if decision.get("gateway_decision") == "approval_required":
+                if self._hitl_persist_fn is not None:
+                    task = self._hitl_persist_fn(
+                        tenant_id=state.tenant_id,
+                        run_id=state.run_id,
+                        agent_id="agent-content-publisher",
+                        tool_name="notify.slack_publish",
+                        action_type="notify_slack",
+                        target_system="slack",
+                        workflow_type="ai_content_pipeline",
+                        gateway_decision="approval_required",
+                        business_explanation=str(decision.get("business_explanation") or ""),
+                    )
+                    if task:
+                        state.hitl_tasks.append(task)
+                state.slack_delivery = {
+                    "channel": os.getenv("SLACK_CONTENT_CHANNEL", "#ai-content-pipeline"),
+                    "delivered": False,
+                    "pending_hitl": True,
+                    "preview": blocks["text"][:500],
+                }
+                state.agent_traces[-1]["status"] = "pending_hitl"
+                state.status = "pending_hitl"
+                return state
+            if decision.get("gateway_decision") in {"block", "deny", "frozen"}:
+                state.slack_delivery = {
+                    "delivered": False,
+                    "blocked": True,
+                    "gateway_decision": decision.get("gateway_decision"),
+                    "preview": blocks["text"][:500],
+                }
+                state.agent_traces[-1]["status"] = "blocked"
+                state.status = "blocked"
+                return state
+
         deliveries = NotificationDeliveryService().deliver_markdown(
             blocks["text"],
             slack_webhook_env="SLACK_CONTENT_WEBHOOK_URL",
@@ -182,11 +249,15 @@ class AIContentPipelineOrchestrator:
     SCHEDULE = "0 7 * * 1,4"  # Mon & Thu 07:00 UTC
     ORCHESTRATOR_ID = "orchestrator-ai-content-pipeline"
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        gateway_fn: GatewayFn | None = None,
+        hitl_persist_fn: HitlPersistFn | None = None,
+    ) -> None:
         self._scout = ScoutAgent()
         self._researcher = ResearcherAgent()
         self._architect = TopicArchitectAgent()
-        self._publisher = PublisherAgent()
+        self._publisher = PublisherAgent(gateway_fn=gateway_fn, hitl_persist_fn=hitl_persist_fn)
         self._runs: list[dict[str, Any]] = []
 
     def run(self, tenant_id: str = "bank-demo") -> dict[str, Any]:
@@ -210,6 +281,9 @@ class AIContentPipelineOrchestrator:
             "scout_signals": state.scout_signals,
             "research_papers": state.research_papers,
             "slack_delivery": state.slack_delivery,
+            "gateway_events": state.gateway_events,
+            "hitl_tasks": state.hitl_tasks,
+            "hitl_pending": state.status == "pending_hitl",
             "agent_traces": state.agent_traces,
             "completed_at": datetime.now(UTC).isoformat(),
         }
@@ -232,6 +306,6 @@ class AIContentPipelineOrchestrator:
             "agents": ["scout", "researcher", "topic_architect", "publisher"],
             "schedule": "Mon & Thu 07:00 UTC (2x/week)",
             "output": "LinkedIn/Substack topic ideas → Slack",
-            "governance": "Registered in AegisAI control plane · HITL optional on publish",
+            "governance": "AI Gateway intercept on notify.slack_publish · HITL before delivery",
             "last_run": self._runs[0] if self._runs else None,
         }

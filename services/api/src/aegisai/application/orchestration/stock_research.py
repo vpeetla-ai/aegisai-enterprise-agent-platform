@@ -9,11 +9,14 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Callable
 from uuid import uuid4
 
 from aegisai.application.knowledge.llm_gateway import LLMGateway
 from aegisai.infrastructure.notifications.delivery import NotificationDeliveryService
+
+GatewayFn = Callable[..., dict[str, object]]
+HitlPersistFn = Callable[..., dict[str, Any] | None]
 
 DEFAULT_TICKERS = ("AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA")
 
@@ -29,6 +32,8 @@ class StockPipelineState:
     briefing_markdown: str = ""
     agent_traces: list[dict[str, Any]] = field(default_factory=list)
     data_lineage: dict[str, Any] = field(default_factory=dict)
+    gateway_events: list[dict[str, Any]] = field(default_factory=list)
+    hitl_tasks: list[dict[str, Any]] = field(default_factory=list)
     status: str = "running"
 
 
@@ -96,10 +101,17 @@ class AnchorAgent:
 
 
 class PublisherAgent:
-    """Compiles executive morning briefing markdown."""
+    """Compiles executive morning briefing markdown — Slack delivery gated by AI Gateway."""
 
-    def __init__(self, llm: LLMGateway | None = None) -> None:
+    def __init__(
+        self,
+        llm: LLMGateway | None = None,
+        gateway_fn: GatewayFn | None = None,
+        hitl_persist_fn: HitlPersistFn | None = None,
+    ) -> None:
         self._llm = llm or LLMGateway(provider=os.getenv("AEGISAI_LLM_PROVIDER", "local"))
+        self._gateway_fn = gateway_fn
+        self._hitl_persist_fn = hitl_persist_fn
 
     def run(self, state: StockPipelineState) -> StockPipelineState:
         state.agent_traces.append({"agent": "publisher", "step": "compile_briefing", "status": "active"})
@@ -111,7 +123,7 @@ class PublisherAgent:
             "",
             "---",
             "",
-            "## 🚨 TOP CONVICTION SIGNALS",
+            "## TOP CONVICTION SIGNALS",
             "",
         ]
         ranked = sorted(
@@ -121,7 +133,7 @@ class PublisherAgent:
         )[:5]
         for ticker, ctx in ranked:
             score = ctx["adjusted_score"]
-            signal = "🟢 STRONG POSITIVE" if score > 0.4 else "🔴 STRONG NEGATIVE" if score < -0.1 else "🟡 NEUTRAL"
+            signal = "STRONG POSITIVE" if score > 0.4 else "STRONG NEGATIVE" if score < -0.1 else "NEUTRAL"
             sentiment = state.sentiment_matrix.get(ticker, {})
             lines.extend([
                 f"### {ticker}",
@@ -135,7 +147,7 @@ class PublisherAgent:
                 "",
             ])
         lines.extend([
-            "## 📋 DATA SOURCES & LINEAGE",
+            "## DATA SOURCES & LINEAGE",
             f"- **Portals Crawled:** {', '.join(state.data_lineage.get('portals_crawled', []))}",
             f"- **Data Integrity Check:** {state.data_lineage.get('data_integrity_check', 'PASS')}",
             "",
@@ -143,6 +155,49 @@ class PublisherAgent:
             "*Disclaimer: Automated synthesis for informational purposes. Not financial advice.*",
         ])
         state.briefing_markdown = "\n".join(lines)
+
+        if self._gateway_fn is not None:
+            decision = self._gateway_fn(
+                tenant_id=state.tenant_id,
+                agent_id="agent-stock-publisher",
+                principal_id="stock-research-pipeline",
+                tool_name="notify.slack_publish",
+                action_type="notify_slack",
+                target_system="slack",
+                amount_usd=0,
+                reversible=True,
+                customer_impact=False,
+            )
+            state.gateway_events.append(
+                {
+                    "tool_name": "notify.slack_publish",
+                    "gateway_decision": decision.get("gateway_decision"),
+                    "business_explanation": decision.get("business_explanation"),
+                }
+            )
+            if decision.get("gateway_decision") == "approval_required":
+                if self._hitl_persist_fn is not None:
+                    task = self._hitl_persist_fn(
+                        tenant_id=state.tenant_id,
+                        run_id=state.run_id,
+                        agent_id="agent-stock-publisher",
+                        tool_name="notify.slack_publish",
+                        action_type="notify_slack",
+                        target_system="slack",
+                        workflow_type="stock_research",
+                        gateway_decision="approval_required",
+                        business_explanation=str(decision.get("business_explanation") or ""),
+                    )
+                    if task:
+                        state.hitl_tasks.append(task)
+                state.agent_traces[-1]["status"] = "pending_hitl"
+                state.status = "pending_hitl"
+                return state
+            if decision.get("gateway_decision") in {"block", "deny", "frozen"}:
+                state.agent_traces[-1]["status"] = "blocked"
+                state.status = "blocked"
+                return state
+
         deliveries = NotificationDeliveryService().deliver_markdown(
             state.briefing_markdown,
             slack_webhook_env="SLACK_STOCK_WEBHOOK_URL",
@@ -159,11 +214,15 @@ class StockResearchOrchestrator:
     SCHEDULE = "0 11 * * 1-5"  # 11:00 UTC ≈ 06:00 AM EST (weekdays)
     ORCHESTRATOR_ID = "orchestrator-stock-research"
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        gateway_fn: GatewayFn | None = None,
+        hitl_persist_fn: HitlPersistFn | None = None,
+    ) -> None:
         self._collector = CollectorAgent()
         self._analyst = AnalystAgent()
         self._anchor = AnchorAgent()
-        self._publisher = PublisherAgent()
+        self._publisher = PublisherAgent(gateway_fn=gateway_fn, hitl_persist_fn=hitl_persist_fn)
         self._runs: list[dict[str, Any]] = []
 
     def run(self, tenant_id: str = "bank-demo", tickers: tuple[str, ...] | None = None) -> dict[str, Any]:
@@ -188,6 +247,9 @@ class StockResearchOrchestrator:
             "contextual_assessment": state.contextual_assessment,
             "briefing_markdown": state.briefing_markdown,
             "data_lineage": state.data_lineage,
+            "gateway_events": state.gateway_events,
+            "hitl_tasks": state.hitl_tasks,
+            "hitl_pending": state.status == "pending_hitl",
             "agent_traces": state.agent_traces,
             "completed_at": datetime.now(UTC).isoformat(),
         }
@@ -210,6 +272,6 @@ class StockResearchOrchestrator:
             "agents": ["collector", "analyst", "anchor", "publisher"],
             "schedule": "Weekdays 06:00 AM EST → Slack + Telegram",
             "output": "Morning stock intelligence briefing → Slack",
-            "governance": "Governed via AegisAI gateway · audit trail per run",
+            "governance": "AI Gateway intercept on notify.slack_publish · HITL before delivery",
             "last_run": self._runs[0] if self._runs else None,
         }

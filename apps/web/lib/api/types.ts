@@ -237,6 +237,7 @@ export type KillSwitchPayload = {
   product_module?: string;
   active_rule_count?: number;
   status?: string;
+  persisted?: boolean;
   rule?: {
     rule_id: string;
     scope_type: string;
@@ -253,7 +254,36 @@ export type KillSwitchPayload = {
     scope_value: string;
     reason: string;
     active: boolean;
+    created_by?: string;
+    created_at?: string;
   }>;
+};
+
+export type HitlQueueTask = {
+  approval_task_id: string;
+  proposal_id: string;
+  tenant_id?: string;
+  assigned_role?: string;
+  status?: string;
+  due_at?: string;
+  case_id?: string;
+  agent_id?: string;
+  action_type?: string;
+  target_system?: string;
+  amount_usd?: number;
+  governance_decision?: string;
+  risk_score?: number;
+  risk_level?: string;
+};
+
+export type HitlQueuePayload = {
+  product_module?: string;
+  headline?: string;
+  tenant_id?: string;
+  status_filter?: string;
+  total?: number;
+  pending_count?: number;
+  tasks?: HitlQueueTask[];
 };
 
 export type IncidentTimelinePayload = {
