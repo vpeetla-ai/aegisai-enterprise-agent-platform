@@ -33,7 +33,7 @@ export function ControlRoom() {
           active={view === "architecture"}
           onClick={() => setView("architecture")}
           label="Architecture"
-          hint="Stack, SLOs, tradeoffs"
+          hint="Stack · tradeoffs · live ops"
         />
       </div>
 
