@@ -504,6 +504,7 @@ def root() -> dict[str, object]:
             "GET /api/mcp/posture",
             "POST /api/mcp/tool-call",
             "GET /api/finops/dashboard",
+            "GET /api/finops/kpi/cost-per-compliant-outcome",
             "POST /api/hitl/slack/approval-task",
             "POST /api/hitl/slack/interaction",
             "GET /api/hitl/slack/posture",
@@ -1467,6 +1468,14 @@ def mcp_tool_call(payload: McpToolCallPayload, auth: AuthRequired) -> dict[str, 
 @app.get("/api/finops/dashboard")
 def finops_dashboard() -> dict[str, object]:
     return finops_service.dashboard()
+
+
+@app.get("/api/finops/kpi/cost-per-compliant-outcome")
+def finops_cost_per_compliant_outcome(tenant_id: str | None = None) -> dict[str, object]:
+    """ADR-029 leadership KPI from agent-finops plane."""
+    from aegisai.product.llm_plane_ops import cost_per_compliant_outcome_payload
+
+    return cost_per_compliant_outcome_payload(tenant_id)  # type: ignore[return-value]
 
 
 @app.post("/api/hitl/slack/approval-task")

@@ -188,3 +188,52 @@ def routing_decisions_payload() -> dict[str, Any]:
         "note": "Live routing audit unreachable — sample decisions for demo.",
         "honesty": "Apps select models; gateway enforces+records (ADR-029).",
     }
+
+
+
+DEMO_KPI = {
+    "service": "agent-finops",
+    "kpi": "cost_per_compliant_outcome",
+    "tenant_id": None,
+    "compliant_outcomes": 12,
+    "total_cost_usd": 1.84,
+    "cost_per_compliant_outcome": 0.1533,
+}
+
+
+def cost_per_compliant_outcome_payload(tenant_id: str | None = None) -> dict[str, Any]:
+    """Fetch ADR-029 KPI from agent-finops (AGENTFINOPS_API_URL)."""
+    base = (os.getenv("AGENTFINOPS_API_URL") or os.getenv("AGENTFINOPS_URL") or "").strip()
+    if not base:
+        if not _demo_fallback_enabled():
+            return {"reachable": False, "error": "AGENTFINOPS_API_URL_not_configured"}
+        return {
+            "reachable": True,
+            "source": "demo_fallback",
+            "plane": "agent-finops",
+            "metrics": DEMO_KPI,
+            "note": "Set AGENTFINOPS_API_URL for live cost-per-compliant-outcome.",
+        }
+    url = base.rstrip("/") + "/v1/kpi/cost-per-compliant-outcome"
+    if tenant_id:
+        url = f"{url}?tenant_id={tenant_id}"
+    live = fetch_plane_metrics(url)
+    if live.get("reachable") and isinstance(live.get("metrics"), dict):
+        return {
+            "reachable": True,
+            "source": "live",
+            "plane": "agent-finops",
+            "url": url,
+            "metrics": live["metrics"],
+        }
+    if not _demo_fallback_enabled():
+        return {**live, "plane": "agent-finops"}
+    return {
+        "reachable": True,
+        "source": "demo_fallback",
+        "plane": "agent-finops",
+        "url": url,
+        "metrics": DEMO_KPI,
+        "note": "Live FinOps KPI unreachable — demo sample.",
+        "live_error": live.get("error"),
+    }

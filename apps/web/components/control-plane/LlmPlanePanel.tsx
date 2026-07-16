@@ -188,6 +188,7 @@ export function LlmPlanePanel({ onOpenOnboard, onOpenGateway }: LlmPlanePanelPro
               <MetricTile label="Completions" value={Number(gw.completions ?? 0)} />
               <MetricTile label="FinOps meters" value={Number(gw.finops_meters ?? 0)} />
               <MetricTile label="Budget blocks" value={Number(gw.finops_breaches_blocked ?? 0)} />
+              <MetricTile label="Routing denies" value={Number(gw.routing_denies ?? 0)} hint="ADR-029 policy" />
             </div>
             <button type="button" className="aegis-link-btn" onClick={() => setTab("completions")}>
               Full completions detail →
