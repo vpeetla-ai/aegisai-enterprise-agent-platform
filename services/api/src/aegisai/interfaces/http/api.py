@@ -464,6 +464,7 @@ def root() -> dict[str, object]:
             "PATCH /api/agent-registry/lifecycle/{agent_id}/status",
             "GET /api/llm-plane/gateway-metrics",
             "GET /api/llm-plane/cache-metrics",
+            "GET /api/llm-plane/routing-decisions",
             "GET /api/platform/posture",
             "GET /api/platform/gateway-story",
             "GET /api/platform/developer-quickstart",
@@ -1523,6 +1524,14 @@ def llm_plane_gateway_metrics() -> dict[str, object]:
     from aegisai.product.llm_plane_ops import gateway_ops_payload
 
     return gateway_ops_payload()
+
+
+@app.get("/api/llm-plane/routing-decisions")
+def llm_plane_routing_decisions() -> dict[str, object]:
+    """Model routing audit + agent→tier→model catalog (ADR-029)."""
+    from aegisai.product.llm_plane_ops import routing_decisions_payload
+
+    return routing_decisions_payload()  # type: ignore[return-value]
 
 
 @app.get("/api/llm-plane/cache-metrics")

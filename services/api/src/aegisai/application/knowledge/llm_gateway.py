@@ -39,8 +39,28 @@ class LLMGateway:
             "https://generativelanguage.googleapis.com/v1beta",
         )
         self.timeout_seconds = float(os.getenv("AEGISAI_LLM_TIMEOUT_SECONDS", "20"))
+        self.llm_gateway_url = (os.getenv("LLM_GATEWAY_URL") or "").strip()
+        self.llm_gateway_api_key = os.getenv("LLM_GATEWAY_API_KEY", "aegisai-gateway")
+        self.llm_gateway_tenant_id = os.getenv("LLM_GATEWAY_TENANT_ID", "aegisai")
 
-    def complete(self, system_prompt: str, user_prompt: str) -> LLMResponse:
+    def complete(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        agent_role: str = "knowledge",
+        thesis_role: str = "retriever",
+        data_class: str = "internal",
+    ) -> LLMResponse:
+        # Federated plane (ADR-029): when LLM_GATEWAY_URL is set, apps select + plane enforces.
+        if self.llm_gateway_url:
+            return self._plane_response(
+                system_prompt,
+                user_prompt,
+                agent_role=agent_role,
+                thesis_role=thesis_role,
+                data_class=data_class,
+            )
         if self.provider == "local":
             content = self._local_response(system_prompt, user_prompt)
             return LLMResponse(

@@ -14,6 +14,7 @@ import httpx
 
 DEFAULT_GATEWAY_OPS = "http://127.0.0.1:8100/v1/ops/metrics"
 DEFAULT_CACHE_OPS = "http://127.0.0.1:8101/v1/ops/metrics"
+DEFAULT_ROUTING_OPS = "http://127.0.0.1:8100/v1/ops/routing-decisions"
 
 DEMO_GATEWAY_METRICS = {
     "service": "aegis-llm-gateway",
@@ -24,6 +25,8 @@ DEMO_GATEWAY_METRICS = {
     "finops_meters": 120,
     "finops_breaches_blocked": 2,
     "finops_errors": 0,
+    "routing_denies": 3,
+    "routing_decisions_recorded": 128,
     "control_plane_mode": "demo",
 }
 
@@ -108,3 +111,80 @@ def cache_ops_payload() -> dict[str, Any]:
         live=fetch_plane_metrics(url),
         demo_metrics=DEMO_CACHE_METRICS,
     )
+
+
+
+DEMO_ROUTING = {
+    "selection_sor": "app",
+    "plane_role": "enforce_and_record",
+    "decisions": [
+        {
+            "tenant_id": "omniforge",
+            "workflow_id": "demo-wf",
+            "factors": {"thesis_role": "executor", "agent_role": "analysis", "data_class": "internal"},
+            "tier": "high_reasoning",
+            "provider": "anthropic",
+            "model_id": "claude-sonnet",
+            "reason": "app_selected_gateway_allowed",
+            "policy_allowed": True,
+            "cost_usd": 0.012,
+        },
+        {
+            "tenant_id": "vap",
+            "workflow_id": "demo-wf",
+            "factors": {"thesis_role": "verifier", "agent_role": "critic", "data_class": "internal"},
+            "tier": "high_reasoning",
+            "provider": "gemini",
+            "model_id": "gemini-2.0-flash",
+            "reason": "app_selected_gateway_allowed",
+            "policy_allowed": True,
+            "cost_usd": 0.004,
+        },
+    ],
+}
+
+# Static agent → tier → model table for Control Room (apps select; keys from env/docs)
+AGENT_MODEL_CATALOG = [
+    {"consumer": "omniforge", "agent": "planner", "thesis_role": "planner", "tier": "specialized", "free_model": "gemini-2.0-flash", "byok_model": "claude-sonnet"},
+    {"consumer": "omniforge", "agent": "web", "thesis_role": "retriever", "tier": "fast", "free_model": "llama-3.3-70b (Groq)", "byok_model": "gpt-4o-mini"},
+    {"consumer": "omniforge", "agent": "analysis", "thesis_role": "executor", "tier": "high_reasoning", "free_model": "gemini-2.0-flash", "byok_model": "claude-sonnet"},
+    {"consumer": "omniforge", "agent": "synthesizer", "thesis_role": "summarizer", "tier": "high_reasoning", "free_model": "gemini-2.0-flash", "byok_model": "gpt-4o"},
+    {"consumer": "vap", "agent": "critic", "thesis_role": "verifier", "tier": "high_reasoning", "free_model": "gemini (≠ generator)", "byok_model": "claude (≠ generator)"},
+    {"consumer": "acf", "agent": "research", "thesis_role": "retriever", "tier": "fast", "free_model": "gemini-2.5-flash", "byok_model": "gpt-4o-mini"},
+    {"consumer": "acf", "agent": "content", "thesis_role": "executor", "tier": "high_reasoning", "free_model": "gemini-2.5-flash", "byok_model": "claude-sonnet"},
+    {"consumer": "domainforge", "agent": "generator", "thesis_role": "executor", "tier": "local_private", "free_model": "ollama/mistral", "byok_model": "vLLM adapter"},
+    {"consumer": "aegisai", "agent": "knowledge", "thesis_role": "retriever", "tier": "fast", "free_model": "gemini-2.0-flash", "byok_model": "gpt-4.1-mini"},
+]
+
+
+def routing_decisions_payload() -> dict[str, Any]:
+    """Proxy gateway routing audit; apps still select (ADR-029)."""
+    metrics_url = _url("LLM_GATEWAY_OPS_URL", DEFAULT_GATEWAY_OPS)
+    # Derive decisions URL from metrics URL when possible
+    if metrics_url.endswith("/v1/ops/metrics"):
+        url = metrics_url[: -len("/v1/ops/metrics")] + "/v1/ops/routing-decisions"
+    else:
+        url = _url("LLM_GATEWAY_ROUTING_OPS_URL", DEFAULT_ROUTING_OPS)
+    live = fetch_plane_metrics(url)
+    if live.get("reachable") and isinstance(live.get("metrics"), dict):
+        return {
+            "reachable": True,
+            "source": "live",
+            "plane": "aegis-llm-gateway",
+            "url": url,
+            "catalog": AGENT_MODEL_CATALOG,
+            "metrics": live["metrics"],
+            "honesty": "Apps select models; gateway enforces+records (ADR-029).",
+        }
+    if not _demo_fallback_enabled():
+        return {**live, "plane": "aegis-llm-gateway", "catalog": AGENT_MODEL_CATALOG}
+    return {
+        "reachable": True,
+        "source": "demo_fallback",
+        "plane": "aegis-llm-gateway",
+        "url": url,
+        "catalog": AGENT_MODEL_CATALOG,
+        "metrics": DEMO_ROUTING,
+        "note": "Live routing audit unreachable — sample decisions for demo.",
+        "honesty": "Apps select models; gateway enforces+records (ADR-029).",
+    }

@@ -43,7 +43,7 @@ const SATELLITE_NAV: NavItem[] = [
   {
     module: "llm-plane",
     label: "LLM metrics",
-    hint: "Cost & cache only",
+    hint: "Cost, cache, model routing",
     icon: Layers,
     satellite: true
   }

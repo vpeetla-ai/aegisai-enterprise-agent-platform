@@ -145,7 +145,7 @@ export function GovernanceModuleView(props: GovernanceModuleViewProps) {
     return (
       <ModuleShell
         title="LLM metrics"
-        subtitle="Optional — model cost & cache dashboard (not tool intercept)"
+        subtitle="Optional — cost, cache, and app-owned model routing audit (not tool intercept)"
         onBack={onBack}
       >
         <LlmPlanePanel

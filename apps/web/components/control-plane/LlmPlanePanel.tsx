@@ -5,6 +5,7 @@ import {
   Activity,
   AlertTriangle,
   Database,
+  GitBranch,
   Layers,
   LayoutDashboard,
   RefreshCw
@@ -12,7 +13,7 @@ import {
 import { requestJson } from "@/lib/api/client";
 import type { AgentRegistryPayload } from "@/lib/api/types";
 
-type PlaneTab = "overview" | "completions" | "cache" | "isolation";
+type PlaneTab = "overview" | "completions" | "cache" | "routing" | "isolation";
 
 type PlaneFetch = {
   reachable?: boolean;
@@ -36,6 +37,7 @@ const TABS: Array<{ id: PlaneTab; label: string; hint: string; icon: typeof Acti
   { id: "overview", label: "Overview", hint: "Cost + cache at a glance", icon: LayoutDashboard },
   { id: "completions", label: "Completions", hint: "Model call volume", icon: Activity },
   { id: "cache", label: "Semantic cache", hint: "Hit / miss / rate", icon: Database },
+  { id: "routing", label: "Model routing", hint: "Agent → tier → model", icon: GitBranch },
   { id: "isolation", label: "Tenant isolation", hint: "How keys stay separate", icon: Layers }
 ];
 
@@ -63,16 +65,21 @@ export function LlmPlanePanel({ onOpenOnboard, onOpenGateway }: LlmPlanePanelPro
   const [tab, setTab] = useState<PlaneTab>("overview");
   const [completions, setCompletions] = useState<PlaneFetch | null>(null);
   const [cache, setCache] = useState<PlaneFetch | null>(null);
+  const [routing, setRouting] = useState<(PlaneFetch & { catalog?: Array<Record<string, string>>; honesty?: string }) | null>(null);
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const [gw, ca] = await Promise.all([
+    const [gw, ca, rt] = await Promise.all([
       requestJson<PlaneFetch>("/api/llm-plane/gateway-metrics"),
-      requestJson<PlaneFetch>("/api/llm-plane/cache-metrics")
+      requestJson<PlaneFetch>("/api/llm-plane/cache-metrics"),
+      requestJson<PlaneFetch & { catalog?: Array<Record<string, string>>; honesty?: string }>(
+        "/api/llm-plane/routing-decisions"
+      )
     ]);
     setCompletions(gw.payload);
     setCache(ca.payload);
+    setRouting(rt.payload);
     setLoading(false);
   }, []);
 
@@ -278,6 +285,68 @@ export function LlmPlanePanel({ onOpenOnboard, onOpenGateway }: LlmPlanePanelPro
               />
             </div>
           )}
+        </div>
+      ) : null}
+
+
+      {tab === "routing" ? (
+        <div className="aegis-card">
+          <div className="aegis-card-header">
+            <h3>Model routing — apps select, plane enforces</h3>
+            <StatusPill fetch={routing} />
+          </div>
+          <p className="aegis-page-lead">
+            {routing?.honesty ||
+              "Apps own model selection; aegis-llm-gateway enforces DataClass / verifier rules and records RoutingDecision (ADR-029)."}
+          </p>
+          <h4>Agent → thesis role → tier → model</h4>
+          <div className="aegis-table-wrap">
+            <table className="aegis-table">
+              <thead>
+                <tr>
+                  <th>Consumer</th>
+                  <th>Agent</th>
+                  <th>Thesis role</th>
+                  <th>Tier</th>
+                  <th>Free / demo</th>
+                  <th>BYOK upgrade</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(routing?.catalog || []).map((row) => (
+                  <tr key={`${row.consumer}-${row.agent}`}>
+                    <td>
+                      <code>{row.consumer}</code>
+                    </td>
+                    <td>{row.agent}</td>
+                    <td>{row.thesis_role}</td>
+                    <td>
+                      <code>{row.tier}</code>
+                    </td>
+                    <td>{row.free_model}</td>
+                    <td>{row.byok_model}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <h4>Recent routing decisions</h4>
+          <ul className="aegis-plain-list">
+            {(((routing?.metrics as { decisions?: Array<Record<string, unknown>> } | undefined)?.decisions) || []).map(
+              (d, i) => {
+                const factors = (d.factors || {}) as Record<string, unknown>;
+                return (
+                  <li key={String(d.decision_id || i)}>
+                    <code>{String(d.tenant_id)}</code> · {String(factors.agent_role || factors.thesis_role || "—")} →{" "}
+                    <code>{String(d.tier)}</code> · {String(d.provider)}/{String(d.model_id)} · $
+                    {Number(d.cost_usd || 0).toFixed(4)}
+                    {d.policy_allowed === false ? " · DENIED" : ""}
+                  </li>
+                );
+              }
+            )}
+          </ul>
+          {routing?.note ? <p className="aegis-muted-line">{routing.note}</p> : null}
         </div>
       ) : null}
 
