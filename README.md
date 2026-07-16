@@ -50,7 +50,8 @@ AegisAI is a **governance control plane**:
 | Component | Status |
 |-----------|--------|
 | AI Gateway (`POST /api/gateway/tool-request`) | ✅ Production |
-| LLM Gateway Plane Control Room | ✅ Tabs for aegis-llm-gateway + semantic-cache ops via BFF (`/api/llm-plane/*`); does **not** proxy completions |
+| LLM Gateway Plane Control Room | ✅ Tabs for aegis-llm-gateway + semantic-cache ops via BFF (`/api/llm-plane/*`); **observes** enforce+record decisions — does **not** select models (ADR-029) |
+| Cost-per-compliant-outcome KPI | ✅ `GET /api/finops/kpi/cost-per-compliant-outcome` → live [agent-finops](https://github.com/vpeetla-ai/agent-finops) when `AGENTFINOPS_API_URL` set |
 | Agent registry self-serve | ✅ Onboard wizard + list POST real entries; LLM Plane → Registry tab |
 | Website Build orchestrator + HITL on deploy | ✅ Gateway-integrated |
 | Python gateway SDK (`sdk/python/`) | ✅ |

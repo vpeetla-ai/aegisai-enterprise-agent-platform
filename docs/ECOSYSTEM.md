@@ -10,6 +10,7 @@ This document aligns **[AegisAI](https://github.com/vpeetla-ai/aegisai-enterpris
 |----------|------|------|
 | **What should agents do?** | [venkat-ai-platform](https://github.com/vpeetla-ai/venkat-ai-platform) | LangGraph orchestration — Chief routes intent, workers run in parallel, Critic reviews output |
 | **What are agents allowed to do?** | [aegisai-enterprise-agent-platform](https://github.com/vpeetla-ai/aegisai-enterprise-agent-platform) | Governance control plane — AI Gateway, policy, HITL, signed audit, FinOps |
+| **How do we route model calls?** | [aegis-llm-gateway](https://github.com/vpeetla-ai/aegis-llm-gateway) + [aegis-routing-contract](https://github.com/vpeetla-ai/aegis-routing-contract) | Apps **select**; gateway **enforces+records** (ADR-028/029). Control Room **observes** ops — does not select. |
 
 ```mermaid
 flowchart TB
@@ -46,7 +47,9 @@ AEGISAI_GATEWAY_FAIL_OPEN=true   # local dev without AegisAI running
 
 | Layer | Repository | Status |
 |-------|------------|--------|
-| **Governance** | [aegisai-enterprise-agent-platform](https://github.com/vpeetla-ai/aegisai-enterprise-agent-platform) | Production control plane + gateway |
+| **Governance** | [aegisai-enterprise-agent-platform](https://github.com/vpeetla-ai/aegisai-enterprise-agent-platform) | Production control plane + tool gateway |
+| **LLM plane** | [aegis-llm-gateway](https://github.com/vpeetla-ai/aegis-llm-gateway) · [aegis-semantic-cache](https://github.com/vpeetla-ai/aegis-semantic-cache) · [aegis-routing-contract](https://github.com/vpeetla-ai/aegis-routing-contract) | Completions enforce+record; Control Room observes |
+| **FinOps** | [agent-finops](https://github.com/vpeetla-ai/agent-finops) | Usage + cost-per-compliant-outcome KPI |
 | **Orchestration** | [venkat-ai-platform](https://github.com/vpeetla-ai/venkat-ai-platform) | Multi-agent OS reference |
 | **Application** | [ai-content-factory](https://github.com/vpeetla-ai/ai-content-factory) | Content pipeline + HITL publish |
 | **Knowledge** | [enterprise_rag_platform](https://github.com/vpeetla-ai/enterprise_rag_platform) | Governed RAG architecture |
