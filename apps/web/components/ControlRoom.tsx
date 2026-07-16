@@ -3,15 +3,16 @@
 import { useState } from "react";
 import { ApiHealthGate } from "@/components/control-plane/ApiHealthGate";
 import { ArchitectLandingStrip } from "@/components/ArchitectLandingStrip";
+import { GlassboxGovernance } from "@/components/GlassboxGovernance";
 import { GovernanceModuleView } from "@/components/control-plane/GovernanceModuleView";
 import { TopNavigation } from "@/components/navigation/TopNavigation";
 import { useControlPlane } from "@/hooks/useControlPlane";
 
-type WorkbenchView = "product" | "architecture";
+type WorkbenchView = "glassbox" | "product" | "architecture";
 
 export function ControlRoom() {
   const cp = useControlPlane();
-  const [view, setView] = useState<WorkbenchView>("product");
+  const [view, setView] = useState<WorkbenchView>("glassbox");
 
   return (
     <main className="shell shell-clean">
@@ -23,6 +24,12 @@ export function ControlRoom() {
       />
 
       <div className="workbench-tabs-bar">
+        <WorkbenchTab
+          active={view === "glassbox"}
+          onClick={() => setView("glassbox")}
+          label="Glass-box"
+          hint="Arch · pipeline · product"
+        />
         <WorkbenchTab
           active={view === "product"}
           onClick={() => setView("product")}
@@ -42,7 +49,9 @@ export function ControlRoom() {
         detail={cp.apiHealth.detail}
         onRecheck={() => void cp.apiHealth.check()}
       >
-        {view === "architecture" ? (
+        {view === "glassbox" ? (
+          <GlassboxGovernance />
+        ) : view === "architecture" ? (
           <ArchitectLandingStrip />
         ) : (
           <GovernanceModuleView
