@@ -338,7 +338,15 @@ export function LlmPlanePanel({ onOpenOnboard, onOpenGateway }: LlmPlanePanelPro
                 const factors = (d.factors || {}) as Record<string, unknown>;
                 return (
                   <li key={String(d.decision_id || i)}>
-                    <code>{String(d.tenant_id)}</code> · {String(factors.agent_role || factors.thesis_role || "—")} →{" "}
+                    <code>{String(d.tenant_id)}</code>
+                    {Array.isArray(factors.notes)
+                      ? factors.notes
+                          .filter((n: unknown) => String(n).startsWith("principal:"))
+                          .map((n: unknown) => (
+                            <span key={String(n)}> · {String(n)}</span>
+                          ))
+                      : null}{" "}
+                    · {String(factors.agent_role || factors.thesis_role || "—")} →{" "}
                     <code>{String(d.tier)}</code> · {String(d.provider)}/{String(d.model_id)} · $
                     {Number(d.cost_usd || 0).toFixed(4)}
                     {d.policy_allowed === false ? " · DENIED" : ""}
@@ -355,17 +363,23 @@ export function LlmPlanePanel({ onOpenOnboard, onOpenGateway }: LlmPlanePanelPro
         <div className="aegis-card">
           <h3>Tenant isolation on the model plane</h3>
           <p className="aegis-page-lead">
-            Completions carry <code>X-Tenant-Id</code>. Cache keys include that tenant — a lookup
-            from another tenant must miss. This is model-plane isolation, not AI Gateway tool
-            policy.
+            Completions carry <code>X-Tenant-Id</code> (required) and optional{" "}
+            <code>X-Principal-Id</code>. Cache keys include the tenant — a lookup from another
+            tenant must miss. Unknown tenants are denied when{" "}
+            <code>TENANT_ENFORCEMENT=enforce</code> or <code>CONTROL_PLANE_MODE=strict</code>.
+            This is logical multi-tenant isolation — not a hard multi-tenant SLA claim.
           </p>
           <ul className="aegis-plain-list">
             <li>
-              Known consumer ids: <code>vap</code>, <code>ai-content-factory</code>,{" "}
-              <code>sentinel-brief</code>, <code>domainforge-rag-peft</code>, <code>omniforge</code>
+              Known consumer ids: <code>vap</code>, <code>omniforge</code>,{" "}
+              <code>ai-content-factory</code>, <code>domainforge-rag-peft</code>,{" "}
+              <code>aegisai</code>, <code>sentinel-brief</code>
             </li>
-            <li>Strict mode: budget breach → HTTP 402; FinOps down → 503</li>
-            <li>Demo mode: fail-open with honest posture endpoints</li>
+            <li>
+              Ops: <code>GET /v1/ops/tenants</code> on the LLM gateway
+            </li>
+            <li>Strict mode: budget breach → HTTP 402; FinOps down → 503; unknown tenant → 403</li>
+            <li>Demo mode: fail-open with honest posture endpoints (warn by default)</li>
           </ul>
           <p className="aegis-muted-line">
             Need to register an agent for <em>tool</em> governance? Use{" "}

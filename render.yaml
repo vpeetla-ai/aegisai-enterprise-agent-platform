@@ -11,6 +11,18 @@ services:
     dockerfilePath: services/api/Dockerfile
     healthCheckPath: /health
     envVars:
+      - key: LLM_PLANE_DEMO_FALLBACK
+        value: true
+      - key: SEMANTIC_CACHE_OPS_URL
+        value: https://aegis-semantic-cache-api.onrender.com/v1/ops/metrics
+      - key: LLM_GATEWAY_OPS_URL
+        value: https://aegis-llm-gateway-api.onrender.com/v1/ops/metrics
+      - key: LLM_GATEWAY_TENANT_ID
+        value: aegisai
+      - key: LLM_GATEWAY_API_KEY
+        sync: false
+      - key: LLM_GATEWAY_URL
+        value: https://aegis-llm-gateway-api.onrender.com/v1
       - key: AEGISAI_LLM_PROVIDER
         value: gemini
       - key: GEMINI_API_KEY
