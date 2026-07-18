@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ApiHealthGate } from "@/components/control-plane/ApiHealthGate";
+import { ReviewModeBanner } from "@/components/control-plane/ReviewModeBanner";
 import { ArchitectLandingStrip } from "@/components/ArchitectLandingStrip";
 import { GlassboxGovernance } from "@/components/GlassboxGovernance";
 import { GovernanceModuleView } from "@/components/control-plane/GovernanceModuleView";
@@ -21,6 +22,11 @@ export function ControlRoom() {
         onSelectModule={cp.selectModule}
         apiHealthy={cp.apiHealth.isReady}
         onRecheckApi={() => void cp.apiHealth.check()}
+      />
+
+      <ReviewModeBanner
+        productionStrict={cp.apiHealth.reviewMode.productionStrict}
+        failClosedReady={cp.apiHealth.reviewMode.failClosedReady}
       />
 
       <div className="workbench-tabs-bar">
