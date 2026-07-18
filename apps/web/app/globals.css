@@ -4355,6 +4355,47 @@ h2 {
   font-size: 0.88rem;
 }
 
+.review-mode-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  padding: 10px 18px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  border-bottom: 1px solid #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.review-mode-banner strong:first-child {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.review-mode-banner code {
+  font-size: 0.75rem;
+}
+
+.review-mode-banner-demo {
+  background: #fffbeb;
+  border-bottom-color: #fcd34d;
+  color: #92400e;
+}
+
+.review-mode-banner-strict {
+  background: #ecfdf5;
+  border-bottom-color: #6ee7b7;
+  color: #065f46;
+}
+
+.review-mode-banner-pending {
+  background: #eff6ff;
+  border-bottom-color: #bfdbfe;
+  color: #1e40af;
+}
+
 .api-health-banner-checking {
   background: #eff6ff;
   border: 1px solid #bfdbfe;
