@@ -42,8 +42,22 @@ terraform apply
 curl -s "$(terraform output -raw alb_url)/health"
 ```
 
+## Capture receipt (no apply/destroy)
+
+After apply (or ECR-only minimal path), write evidence for the architecture portfolio:
+
+```bash
+./scripts/capture_receipt.sh
+# → ~/ai-architecture-portfolio/docs/artifacts/aws-receipts/YYYYMMDD-aws-receipt.md
+# Override: AWS_RECEIPT_DIR=/path ARCHITECTURE_PORTFOLIO=/path
+```
+
+Redact AWS account IDs before committing public artifacts. Full checklist: [P2_AWS_RECEIPT_RUNBOOK](https://github.com/vpeetla-ai/ai-architecture-portfolio/blob/main/docs/P2_AWS_RECEIPT_RUNBOOK.md).
+
 ## Tear down
 
 ```bash
 terraform destroy
 ```
+
+**Same day** under the $45 ceiling — do not leave ALB/RDS up overnight.
