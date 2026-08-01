@@ -4,33 +4,38 @@
 
 Accepted
 
+## In one breath (panel)
+
+I'd put an independent control plane in front of irreversible tools — agents propose, the gateway decides with policy + HITL + audit, and the agent graph never gets a back door.
+
 ## Context
 
-AI agents need to interact with enterprise systems, but direct tool execution creates risks around compliance, safety, duplicate side effects, and auditability. Each agent team could build its own approval logic, but that would lead to inconsistent controls and duplicated effort.
+Agents that can deploy, notify, or call money APIs without a shared approval path are a compliance and safety scar waiting to happen. Every team reinventing its own "are we sure?" check produces soft multi-tenancy theater: different rules, no common audit, and nobody who can answer "who approved this?" under pressure.
+
+I refused merging governance into each LangGraph. Orchestration owns *what to try*; a separate plane owns *whether it may execute*.
 
 ## Decision
 
-Agents may propose actions, but the AegisAI Control Plane owns risk scoring, policy evaluation, human approval workflow, approval token issuance, execution authorization, and audit logging.
+Agents may propose actions. The AegisAI Control Plane owns risk scoring, policy evaluation, human approval, approval-token issuance, execution authorization, and audit logging.
+
+Demo vs Strict: the gateway path is Implemented. OPA can still fail open (advisory → HITL) when unavailable — that is labeled, not sold as hard enterprise fail-closed.
 
 ## Consequences
 
-Positive:
+**What we gained**
 
-- Consistent governance across agents.
-- Reusable approval and evaluation infrastructure.
-- Stronger audit and compliance posture.
-- Lower burden on individual agent teams.
+- One governance contract across orchestrators and consumers
+- Reusable approval + evaluation instead of per-agent snowflakes
+- Audit you can actually hand a reviewer
 
-Negative:
+**What we gave up**
 
-- Requires integration with all agent runtimes and enterprise systems.
-- Adds a platform dependency to agent execution.
-- Needs careful latency and reliability engineering.
+- Every runtime must integrate the gateway — that's a platform dependency, not a library import
+- Latency and reliability of the control plane become part of the agent SLO story (we don't invent numbers here; we design for idempotency and graceful degradation)
 
 ## Mitigations
 
-- Provide SDKs and a stable proposal API.
-- Keep low-risk synchronous path fast.
-- Use async workflows for human approval and deep evaluation.
-- Design the execution broker for idempotency, retries, and graceful degradation.
-
+- SDKs + a stable proposal API
+- Keep the low-risk synchronous path fast
+- Async workflows for HITL and deep evaluation
+- Execution broker designed for idempotency, retries, and degradation

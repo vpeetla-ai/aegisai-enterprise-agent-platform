@@ -4,74 +4,48 @@
 
 Accepted
 
+## In one breath (panel)
+
+I'd put the same auth dependency on cron orchestrator runs that every other mutating route already has — leaving the LLM/Vercel triggers uniquely open was an accident, not a product choice.
+
 ## Context
 
-A security audit of the gateway request path (part of a broader review across the vpeetla-ai
-org) found `POST /api/orchestrators/ai-content/run`, `POST /api/orchestrators/stock-research/run`,
-and `POST /api/orchestrators/website-build/run` (`services/api/src/aegisai/interfaces/http/api.py`)
-had no `AuthRequired` dependency at all — every other mutating route in the same file
-(agent onboarding, lifecycle registration, gateway tool-request, kill-switches, connectors)
-already requires it. These three trigger real LLM calls (Gemini/OpenAI) and, for website-build,
-Vercel API calls. `render.yaml`'s cron jobs and the free-tier `.github/workflows/orchestrator-cron.yml`
-alternative both call them with no credentials, and `apps/web`'s frontend never sends a bearer
-token either — so nothing in the current deployment depended on these routes being open.
+A security audit of the gateway request path found `POST /api/orchestrators/ai-content/run`, `…/stock-research/run`, and `…/website-build/run` had no `AuthRequired` at all. Every other mutating route in the same file already required it. Those three fire real LLM calls (and website-build hits Vercel). Cron (`render.yaml`, GitHub Actions) and the free-tier frontend never sent credentials — so nothing in the current deploy *depended* on them being open. Still: unique exemption is how demos become prod holes.
 
-Separately, this review found the README's implementation-status table understated actual
-capability: it listed "Agent registry Postgres persistence: 🟡 In-memory today," but
-`services/api/src/aegisai/infrastructure/persistence/factory.py::build_agent_registry_service`
-already supports a real `PostgresAgentRegistryStore`, selected via `AEGISAI_DB_BACKEND=postgres`
-— SQLite is only the dev-mode default, not a hard limitation. The audit also confirmed the OPA
-policy engine's existing "optional, defaults to builtin simulator" status is accurate, and that
-it **fails open** (advisory only, never a hard block) when OPA itself is unavailable — worth
-stating explicitly rather than leaving implicit.
+Separately, the README understated registry persistence ("in-memory today") when `PostgresAgentRegistryStore` already exists behind `AEGISAI_DB_BACKEND=postgres`. Honesty cuts both ways — don't oversell, don't undersell.
+
+OPA remains optional and **fails open** (advisory) when unavailable. Worth saying out loud.
 
 ## Decision
 
-1. Add `auth: AuthRequired` to the three orchestrator run routes, matching the pattern already
-   used everywhere else in `api.py`. Since `require_authenticated` only actually rejects a
-   request when `AEGISAI_ENFORCE_AUTH=true` (default: `false`), this is a no-op today and only
-   takes effect once the operator opts into enforcement — consistent with every other route's
-   behavior, not a new auth mechanism.
-2. Update both cron callers (`render.yaml`'s two `dockerCommand` entries and
-   `.github/workflows/orchestrator-cron.yml`'s two `curl` calls) to send
-   `X-AegisAI-Principal: render-cron` / `github-actions-cron` respectively, so enabling
-   `AEGISAI_ENFORCE_AUTH` later doesn't silently break scheduled runs.
-3. Correct the README's registry-persistence row to `✅` with the real mechanism documented,
-   and add an explicit "fails open" note to the OPA row.
+1. Add `auth: AuthRequired` to the three orchestrator run routes — same pattern as the rest of `api.py`. Enforcement only rejects when `AEGISAI_ENFORCE_AUTH=true` (default `false`), so this is a no-op until an operator opts in.
+2. Update cron callers to send `X-AegisAI-Principal: render-cron` / `github-actions-cron` so flipping enforcement later doesn't silently break schedules.
+3. Correct the README registry row to ✅ with the real mechanism, and label OPA fail-open explicitly.
+
+**Demo vs Strict:** Demo stays open by default (`ENFORCE_AUTH=false`). Strict is operator opt-in — not claimed as the live public demo posture.
 
 ## Consequences
 
 ### Positive
-- The three orchestrator endpoints are no longer uniquely exempt from the auth policy every
-  other mutating route already enforces.
-- Cron callers keep working today (enforcement is off by default) and won't silently break if
-  `AEGISAI_ENFORCE_AUTH` is turned on later.
-- README now accurately reflects that Postgres persistence for the agent registry already
-  exists — this was undersold, not oversold, but accuracy matters both directions.
+
+- Orchestrator endpoints are no longer uniquely exempt
+- Cron keeps working today; won't break silently when enforcement turns on
+- README matches reality on Postgres registry
 
 ### Negative
-- `AEGISAI_ENFORCE_AUTH` still defaults to `false`, so these routes remain open on any
-  deployment that hasn't explicitly turned enforcement on — this ADR closes the "uniquely
-  exempt" inconsistency, not the broader "auth is opt-in" posture, which is a bigger product
-  decision (would need OIDC configured for every client, including the demo frontend).
-- FinOps's `monthly_cost_usd` remains static seed data
-  (`infrastructure/persistence/agent_registry_seeds.py`), not live token/request metering — the
-  dashboard reports on configured numbers, not real gateway traffic. Wiring real cost tracking
-  into every LLM call site across all orchestrators is a larger follow-up, not addressed here.
-- OPA policy violations remain advisory (route to HITL) rather than a hard block — whether
-  critical actions should fail-closed by default is a product/architecture decision for a
-  future ADR, not assumed here.
+
+- Auth still defaults off — this ADR closes the inconsistency, not the bigger "public internet should enforce by default" product call
+- FinOps `monthly_cost_usd` was still seed data at the time (fixed for Website Build in ADR-0004; other orchestrators remain partial)
+- OPA violations stay advisory → HITL, not hard fail-closed
 
 ### Follow-ups
-- ADR-0004 (done): wire real per-call token/cost metering into the FinOps module — see
-  [ADR-0004](./0004-real-finops-metering-website-build.md).
-- ADR-0005 (proposed): decide whether `AEGISAI_ENFORCE_AUTH=true` should be the default for any
-  deployment reachable from the public internet, and update the frontend to send real
-  credentials rather than dev headers.
-- ADR-0006 (proposed): make OPA policy decisions fail-closed for critical actions.
+
+- ADR-0004 (done): real FinOps metering — [ADR-0004](./0004-real-finops-metering-website-build.md)
+- Decide whether `AEGISAI_ENFORCE_AUTH=true` should be default for public deploys (needs OIDC for every client, including the demo UI)
+- OPA fail-closed for critical actions — future ADR, not assumed here
 
 ## References
-- `services/api/src/aegisai/interfaces/http/api.py::run_ai_content_pipeline`,
-  `run_stock_research`, `run_website_build`
+
+- `services/api/src/aegisai/interfaces/http/api.py::run_ai_content_pipeline`, `run_stock_research`, `run_website_build`
 - `services/api/src/aegisai/interfaces/http/auth.py::AuthRequired`, `require_authenticated`
-- Same auth-gap pattern found and fixed org-wide: [loop-engine-agent-platform ADR-002](https://github.com/vpeetla-ai/loop-engine-agent-platform/blob/main/docs/ADR-002-repo-fix-auth-and-isolation.md), [sentinel-brief ADR-0002](https://github.com/vpeetla-ai/sentinel-brief/blob/main/docs/adr/0002-runs-auth-and-llm-synthesis.md)
+- Same pattern org-wide: [loop-engine-agent-platform ADR-002](https://github.com/vpeetla-ai/loop-engine-agent-platform/blob/main/docs/ADR-002-repo-fix-auth-and-isolation.md), [sentinel-brief ADR-0002](https://github.com/vpeetla-ai/sentinel-brief/blob/main/docs/adr/0002-runs-auth-and-llm-synthesis.md)

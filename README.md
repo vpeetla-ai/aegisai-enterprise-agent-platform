@@ -21,9 +21,9 @@ git clone https://github.com/vpeetla-ai/vpeetla-ai-skills.git
 [![CI](https://github.com/vpeetla-ai/aegisai-enterprise-agent-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/vpeetla-ai/aegisai-enterprise-agent-platform/actions/workflows/ci.yml)
 [![Stack](https://img.shields.io/badge/stack-free--tier%20ready-purple)]()
 
-**Monitor → Govern → Remediate** — a production control plane for live AI agent fleets, not another agent builder.
+**Job of the system:** sit in front of live agents and decide whether a tool call may execute — identity, policy, HITL, signed audit, FinOps — then let the graph keep orchestrating. Not another agent builder.
 
-> Production agents connect through an **AI Gateway** for tool authorization: identity, RBAC, policy, HITL approval, signed audit, and FinOps — before side effects execute.
+> Agents propose. The **AI Gateway** authorizes. Side effects don't fire on hope.
 
 [▶ Live control plane](https://aegisai-enterprise-agent-platform.vercel.app) · [📖 North-star architecture](platform/architecture/ARCHITECTURE.md) · [🔗 Ecosystem map](docs/ECOSYSTEM.md) · [🔑 Deploy & secrets](platform/architecture/DEPLOYMENT-AND-SECRETS.md)
 
@@ -31,9 +31,9 @@ git clone https://github.com/vpeetla-ai/vpeetla-ai-skills.git
 
 ## Why this exists
 
-Most teams ship agents first and add governance later. That fails when agents can deploy code, call financial APIs, or push to production without oversight.
+Teams ship agents first and bolt on governance later. That fails the first time an agent can deploy, spend, or notify without a named approver.
 
-AegisAI is a **governance control plane**:
+AegisAI is the **governance control plane** for that scar:
 
 | Problem | AegisAI answer |
 |---------|----------------|
@@ -42,6 +42,8 @@ AegisAI is a **governance control plane**:
 | Risky deploy actions | OPA policy + **forced HITL** for `deploy_*` tools |
 | No audit trail | Signed audit packets + export |
 | Shadow agents | Onboarding lifecycle: Shadow → Pilot → Approved |
+
+**Demo vs Strict:** public demo may seed monitor events when audit is empty; `PRODUCTION_STRICT=true` disables seed. Auth enforcement (`AEGISAI_ENFORCE_AUTH`) and OPA hard-block are opt-in — see the status table, not a brochure claim.
 
 ---
 
