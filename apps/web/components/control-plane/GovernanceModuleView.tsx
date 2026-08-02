@@ -250,7 +250,10 @@ export function GovernanceModuleView(props: GovernanceModuleViewProps) {
         subtitle="Approve or reject pending tool side effects"
         onBack={onBack}
       >
-        <HitlQueuePanel apiHealthy={props.apiHealthy} />
+        <HitlQueuePanel
+          apiHealthy={props.apiHealthy}
+          onOpenGateway={() => props.onSelectModule("gateway")}
+        />
       </ModuleShell>
     );
   }

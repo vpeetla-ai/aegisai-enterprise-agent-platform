@@ -65,7 +65,7 @@ AegisAI is a **governance control plane**:
 | VAP notify gateway | ✅ Wired (`aegis_gateway.py`) |
 | ai-content-factory publish | ✅ Wired — ACF calls `POST /api/gateway/tool-request` for `publish.{platform}` via `aegis_gateway.py` (fail-closed under `PRODUCTION_STRICT`) |
 | Cron orchestrator notify | 🟡 Partial — content/stock cron are AuthRequired managed runs; per-tool notify intercept still incomplete |
-| Langfuse + LangSmith traces | ✅ | Optional `LANGFUSE_*` / `LANGSMITH_*` — `GET /api/observability/status` |
+| Langfuse + LangSmith traces | ✅ | Optional `LANGFUSE_*` / `LANGSMITH_*` — `GET /api/observability/status`; also mirrored on `GET /api/v1/ops/metrics` with pending HITL count |
 | Real FinOps metering + budget enforcement | ✅ Website Build's 4 LLM agents + **AI Content Pipeline** `agent-content-topic-architect` via [agent-finops](https://github.com/vpeetla-ai/agent-finops). Stock research has no LLM `complete()` today (synthetic briefing) — not metered. See [ADR-0004](adr/0004-real-finops-metering-website-build.md) |
 | MCP — gate inbound (agent → external MCP server) | ✅ `McpGovernanceProxy` routes every outbound MCP tool call through policy/HITL/kill-switch before it reaches `filesystem`/`github`/`postgres`/`slack`/`custom_enterprise_mcp` |
 | MCP — expose outbound (external client → AegisAI) | ✅ `interfaces/mcp/server.py` exposes `list_registered_agents`, `check_agent_budget`, `get_kill_switch_status`, `run_website_build` as real MCP tools, calling the same governed singletons the HTTP API uses — see [ADR-0005](adr/0005-mcp-tool-exposure.md) |

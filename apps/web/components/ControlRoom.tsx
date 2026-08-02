@@ -57,11 +57,30 @@ export function ControlRoom() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Keep shareable ?view=&module= in sync after navigation (HITL / orchestrators polish).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    params.set("view", view);
+    if (view === "product") {
+      params.set("module", cp.activeModule);
+    } else {
+      params.delete("module");
+    }
+    const next = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState(null, "", next);
+  }, [view, cp.activeModule]);
+
+  const selectModuleAndOperate = (module: DashboardModule) => {
+    setView("product");
+    cp.selectModule(module);
+  };
+
   return (
     <main className="shell shell-clean">
       <TopNavigation
         activeModule={cp.activeModule}
-        onSelectModule={cp.selectModule}
+        onSelectModule={selectModuleAndOperate}
         apiHealthy={cp.apiHealth.isReady}
         onRecheckApi={() => void cp.apiHealth.check()}
       />
@@ -104,11 +123,14 @@ export function ControlRoom() {
         ) : (
           <GovernanceModuleView
           activeModule={cp.activeModule}
-          onBack={() => cp.setActiveModule("dashboard")}
+          onBack={() => {
+            setView("product");
+            cp.setActiveModule("dashboard");
+          }}
           dashboardSummary={cp.dashboardSummary}
           isLoadingDashboard={cp.isLoadingDashboard}
           onRefreshDashboard={() => void cp.refreshDashboard()}
-          onSelectModule={cp.selectModule}
+          onSelectModule={selectModuleAndOperate}
           apiHealthy={cp.apiHealth.isReady}
           governanceMetrics={cp.governanceMetrics}
           onRefreshMetrics={() => void cp.refreshMetrics()}
