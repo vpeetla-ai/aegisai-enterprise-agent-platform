@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, RefreshCw, XCircle } from "lucide-react";
+import { CheckCircle2, Link2, RefreshCw, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { requestJson } from "@/lib/api/client";
 import { safeArray } from "@/lib/api/safe";
@@ -8,13 +8,18 @@ import type { HitlQueuePayload, HitlQueueTask } from "@/lib/api/types";
 
 type HitlQueuePanelProps = {
   apiHealthy: boolean;
+  onOpenGateway?: () => void;
 };
 
-export function HitlQueuePanel({ apiHealthy }: HitlQueuePanelProps) {
+const HITL_DEEP_LINK = "?view=product&module=hitl";
+const ACF_HITL = "https://ai-content-factory.vercel.app/dashboard";
+
+export function HitlQueuePanel({ apiHealthy, onOpenGateway }: HitlQueuePanelProps) {
   const [queue, setQueue] = useState<HitlQueuePayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [actingId, setActingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -26,6 +31,17 @@ export function HitlQueuePanel({ apiHealthy }: HitlQueuePanelProps) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const copyDeepLink = async () => {
+    const url = `${window.location.origin}/${HITL_DEEP_LINK}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setMessage(`Shareable HITL URL: ${url}`);
+    }
+  };
 
   const act = async (task: HitlQueueTask, action: "approve" | "reject") => {
     if (!task.case_id || !task.proposal_id) {
@@ -79,13 +95,20 @@ export function HitlQueuePanel({ apiHealthy }: HitlQueuePanelProps) {
           <h2>HITL approval queue</h2>
           <p className="aegis-page-lead">
             Agent tool calls that need a human land here. Approve to issue an execution token, or
-            reject to block the side effect — with an audit trail either way.
+            reject to block the side effect — with an audit trail either way. URL stays shareable as{" "}
+            <code>{HITL_DEEP_LINK}</code>.
           </p>
         </div>
-        <button type="button" className="aegis-btn-ghost" onClick={() => void refresh()} disabled={loading}>
-          <RefreshCw size={16} />
-          {loading ? "Refreshing…" : "Refresh"}
-        </button>
+        <div className="aegis-hitl-header-actions">
+          <button type="button" className="aegis-btn-ghost" onClick={() => void copyDeepLink()}>
+            <Link2 size={16} />
+            {copied ? "Copied" : "Copy deep link"}
+          </button>
+          <button type="button" className="aegis-btn-ghost" onClick={() => void refresh()} disabled={loading}>
+            <RefreshCw size={16} />
+            {loading ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
       </header>
 
       <div className="aegis-metric-tile-grid" style={{ marginBottom: 16 }}>
@@ -111,8 +134,20 @@ export function HitlQueuePanel({ apiHealthy }: HitlQueuePanelProps) {
 
       {tasks.length === 0 ? (
         <div className="aegis-try-placeholder">
-          No pending approvals. Run a sample tool intercept on AI Gateway (deploy tools always need a
-          human) or run Website Build / Content / Stock notify paths.
+          <p>
+            No pending approvals. Seed one from AI Gateway (deploy tools always need a human), or wait
+            for Website Build / Content / Stock notify paths.
+          </p>
+          <div className="aegis-hitl-empty-actions">
+            {onOpenGateway ? (
+              <button type="button" className="aegis-btn-primary" onClick={onOpenGateway}>
+                Open AI Gateway
+              </button>
+            ) : null}
+            <a className="aegis-btn-secondary" href={ACF_HITL} target="_blank" rel="noreferrer">
+              ACF dashboard HITL
+            </a>
+          </div>
         </div>
       ) : (
         <ul className="aegis-hitl-list">

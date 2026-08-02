@@ -136,6 +136,18 @@ class FastAPITests(unittest.TestCase):
         self.assertIn("AegisAI control-plane", payload["source_of_truth"])
         self.assertEqual({item["name"] for item in payload["exporters"]}, {"Langfuse", "LangSmith"})
 
+    def test_ops_metrics_includes_hitl_and_observability(self) -> None:
+        response = self.client.get("/api/v1/ops/metrics")
+        self.assertEqual(response.status_code, 200)
+        extra = response.json()["extra"]
+        self.assertIn("pending_hitl", extra)
+        self.assertEqual(extra["hitl_deep_link"], "?view=product&module=hitl")
+        self.assertIn("observability", extra)
+        self.assertEqual(
+            {item["name"] for item in extra["observability"]["exporters"]},
+            {"Langfuse", "LangSmith"},
+        )
+
     def test_reviewer_action_endpoint_records_audit_event(self) -> None:
         self.client.post(
             "/api/agents/run",

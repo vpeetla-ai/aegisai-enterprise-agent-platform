@@ -1516,6 +1516,8 @@ def ops_metrics_unified() -> dict[str, object]:
         "action_executions": control_plane_store.count("action_executions"),
         "audit_events": control_plane_store.count("audit_events"),
     }
+    pending_hitl = control_plane_store.count_approval_tasks(status="pending")
+    exporters = [_status_payload(status) for status in observability_service.statuses()]
     total = counts["action_executions"] + counts["governance_decisions"]
     return {
         "service": "aegisai-enterprise-agent-platform",
@@ -1525,7 +1527,15 @@ def ops_metrics_unified() -> dict[str, object]:
         "p95_latency_ms": None,
         "active_entities": counts["cases"],
         "slo": {"target_uptime_pct": 99.5, "success_target_pct": 95.0},
-        "extra": counts,
+        "extra": {
+            **counts,
+            "pending_hitl": pending_hitl,
+            "hitl_deep_link": "?view=product&module=hitl",
+            "observability": {
+                "source_of_truth": "AegisAI control-plane audit / HITL DB",
+                "exporters": exporters,
+            },
+        },
     }
 
 
