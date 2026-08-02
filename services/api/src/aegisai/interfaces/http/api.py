@@ -309,6 +309,8 @@ def _website_gateway_decision(**kwargs: object) -> dict[str, object]:
 ai_content_orchestrator = AIContentPipelineOrchestrator(
     gateway_fn=_website_gateway_decision,
     hitl_persist_fn=hitl_queue_service.persist_from_gateway_event,
+    agent_registry=agent_registry_service,
+    kill_switch_service=kill_switch_service,
 )
 stock_research_orchestrator = StockResearchOrchestrator(
     gateway_fn=_website_gateway_decision,

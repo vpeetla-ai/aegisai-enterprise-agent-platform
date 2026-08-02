@@ -1,19 +1,61 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiHealthGate } from "@/components/control-plane/ApiHealthGate";
 import { ReviewModeBanner } from "@/components/control-plane/ReviewModeBanner";
 import { ArchitectLandingStrip } from "@/components/ArchitectLandingStrip";
 import { GlassboxGovernance } from "@/components/GlassboxGovernance";
 import { GovernanceModuleView } from "@/components/control-plane/GovernanceModuleView";
+import type { DashboardModule } from "@/components/control-plane/GovernanceDashboard";
 import { TopNavigation } from "@/components/navigation/TopNavigation";
 import { useControlPlane } from "@/hooks/useControlPlane";
 
 type WorkbenchView = "glassbox" | "product" | "architecture";
 
+const MODULES: DashboardModule[] = [
+  "dashboard",
+  "monitor",
+  "agents",
+  "governance",
+  "gateway",
+  "llm-plane",
+  "hitl",
+  "finops",
+  "incidents",
+  "orchestrators",
+  "onboard",
+];
+
+function parseDeepLink(): { view?: WorkbenchView; module?: DashboardModule } {
+  if (typeof window === "undefined") return {};
+  const params = new URLSearchParams(window.location.search);
+  const viewRaw = params.get("view");
+  const moduleRaw = params.get("module");
+  const view =
+    viewRaw === "glassbox" || viewRaw === "product" || viewRaw === "architecture"
+      ? viewRaw
+      : undefined;
+  const module =
+    moduleRaw && (MODULES as string[]).includes(moduleRaw)
+      ? (moduleRaw as DashboardModule)
+      : undefined;
+  return { view, module };
+}
+
 export function ControlRoom() {
   const cp = useControlPlane();
   const [view, setView] = useState<WorkbenchView>("glassbox");
+
+  useEffect(() => {
+    const { view: deepView, module: deepModule } = parseDeepLink();
+    if (deepView) setView(deepView);
+    if (deepModule) {
+      setView((v) => (deepView ? deepView : "product"));
+      cp.selectModule(deepModule);
+    }
+    // Deep-link once on mount for VAP / portfolio HITL entry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <main className="shell shell-clean">
