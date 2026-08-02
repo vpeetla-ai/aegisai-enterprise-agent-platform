@@ -48,7 +48,8 @@
 │  └─────────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-Observability (parallel, non-authoritative): Langfuse + LangSmith traces per agent run
+Observability: control-plane audit/HITL is the ledger; Langfuse + LangSmith are adapters
+  → posture: GET /api/observability/status
 Notifications: Slack webhooks + Telegram bot for pipeline outputs
 ```
 
@@ -66,7 +67,7 @@ Notifications: Slack webhooks + Telegram bot for pipeline outputs
 | **Infrastructure** | `services/api/.../infrastructure` | Persistence, notifications |
 | **Policy** | `platform/policy/aegisai.rego` | OPA rules (optional; default is builtin policy simulator) |
 | **Database** | `platform/database/*.sql` | Postgres schema (Supabase in prod) |
-| **Observability** | Langfuse + LangSmith env | Traces per orchestrator run (parallel, non-authoritative) |
+| **Observability** | Audit DB + Langfuse/LangSmith adapters | Decision ledger stays in AegisAI; `GET /api/observability/status` says so |
 
 > **North star vs today:** The diagram above is the target. **Website Build** and **SDK-registered agents** use the gateway today. Content and Stock cron orchestrators run managed pipelines without per-tool gateway intercept — see [Gateway coverage](#gateway-coverage-honest-matrix) below.
 
