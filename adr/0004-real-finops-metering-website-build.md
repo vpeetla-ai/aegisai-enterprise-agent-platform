@@ -42,29 +42,32 @@ ADR covers wiring this repo as agent-finops's first real consumer.
 5. Given no `AGENTFINOPS_API_URL` is set, `FinOpsClient` computes cost locally and never reports
    a breach (no persisted ledger to check against) — the existing default demo behavior is
    unaffected until an operator points this at a real `agent-finops` deployment.
+6. **Follow-on vertical slice:** AI Content Pipeline's `TopicArchitectAgent`
+   (`agent-content-topic-architect`) meters via the same `FinOpsClient` helper
+   (`cron_finops.meter_llm_response`) and halts before Slack publish on breach.
+
+**Implemented vs Planned:** Website Build metering ✅. AI Content Pipeline topic architect
+metering ✅. `stock_research` has no LLM `complete()` path today (synthetic briefing) — remains
+unwired until it calls a model.
 
 ## Consequences
 
 ### Positive
-- FinOps's numbers for these 4 agents are now real, not seed data — the first genuine fix of the
+- FinOps's numbers for these 4 Website Build agents are now real, not seed data — the first genuine fix of the
   gap ADR-0003 flagged.
+- Content Pipeline topic architect cost is attributed to a registry-backed agent identity.
 - The kill-switch — already real, already working — now has a real trigger condition instead of
   only being reachable via the manual `/api/kill-switches` endpoint.
-- 4 new tests prove the reaction to a breach signal: cost write-through, kill-switch activation,
-  no-breach leaves the agent unblocked, and a full orchestrator run halts before later nodes run
-  (their artifacts stay empty).
+- Tests prove the reaction to a breach signal for Website Build and Content Pipeline.
 
 ### Negative
-- Only `WebsiteBuildOrchestrator` is wired — `ai_content_pipeline` and `stock_research`
-  orchestrators' agents don't have matching registry entries yet, so their FinOps numbers remain
-  seed data until a fast-follow adds them.
+- `stock_research` remains unwired until it performs a real LLM `complete()`.
 - Requires `AGENTFINOPS_API_URL`/`AGENTFINOPS_API_KEY` actually set for breach detection to mean
   anything — unset, this ADR's enforcement path is present but dormant, same caveat as every
   other opt-in gate built this session.
 
 ### Follow-ups
-- Wire `ai_content_pipeline` and `stock_research` orchestrators once they have registry-backed
-  agent identities to attribute cost to.
+- Wire `stock_research` once it has an LLM completion path and registry-backed agent identity.
 - ADR-0005 (proposed, carried from ADR-0003): decide whether `AEGISAI_ENFORCE_AUTH=true` should
   be the production default.
 - ADR-0006 (proposed, carried from ADR-0003): OPA fail-closed for critical actions.
@@ -72,6 +75,9 @@ ADR covers wiring this repo as agent-finops's first real consumer.
 ## References
 - `services/api/src/aegisai/application/knowledge/llm_gateway.py::LLMResponse`
 - `services/api/src/aegisai/application/orchestration/website_build_pipeline.py::WebsiteBuildLangGraph._meter_llm_call`
+- `services/api/src/aegisai/application/orchestration/cron_finops.py`
+- `services/api/src/aegisai/application/orchestration/ai_content_pipeline.py::TopicArchitectAgent`
 - `services/api/src/aegisai/product/agent_registry.py::AgentRegistryService.record_usage`
 - `services/api/tests/test_website_build_finops.py`
+- `services/api/tests/test_content_pipeline_finops.py`
 - [agent-finops](https://github.com/vpeetla-ai/agent-finops)
