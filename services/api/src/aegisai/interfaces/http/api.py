@@ -309,6 +309,8 @@ def _website_gateway_decision(**kwargs: object) -> dict[str, object]:
 ai_content_orchestrator = AIContentPipelineOrchestrator(
     gateway_fn=_website_gateway_decision,
     hitl_persist_fn=hitl_queue_service.persist_from_gateway_event,
+    agent_registry=agent_registry_service,
+    kill_switch_service=kill_switch_service,
 )
 stock_research_orchestrator = StockResearchOrchestrator(
     gateway_fn=_website_gateway_decision,
@@ -1514,6 +1516,8 @@ def ops_metrics_unified() -> dict[str, object]:
         "action_executions": control_plane_store.count("action_executions"),
         "audit_events": control_plane_store.count("audit_events"),
     }
+    pending_hitl = control_plane_store.count_approval_tasks(status="pending")
+    exporters = [_status_payload(status) for status in observability_service.statuses()]
     total = counts["action_executions"] + counts["governance_decisions"]
     return {
         "service": "aegisai-enterprise-agent-platform",
@@ -1523,7 +1527,15 @@ def ops_metrics_unified() -> dict[str, object]:
         "p95_latency_ms": None,
         "active_entities": counts["cases"],
         "slo": {"target_uptime_pct": 99.5, "success_target_pct": 95.0},
-        "extra": counts,
+        "extra": {
+            **counts,
+            "pending_hitl": pending_hitl,
+            "hitl_deep_link": "?view=product&module=hitl",
+            "observability": {
+                "source_of_truth": "AegisAI control-plane audit / HITL DB",
+                "exporters": exporters,
+            },
+        },
     }
 
 

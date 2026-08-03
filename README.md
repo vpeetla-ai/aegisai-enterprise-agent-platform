@@ -65,10 +65,10 @@ AegisAI is the **governance control plane** for that scar:
 | Agent registry Postgres persistence | ✅ `AEGISAI_DB_BACKEND=postgres` — SQLite (dev default) or Postgres via `factory.py` |
 | OPA policy engine | 🟡 Optional — default is builtin policy simulator; **fails open** (advisory, not a hard block) when unavailable |
 | VAP notify gateway | ✅ Wired (`aegis_gateway.py`) |
-| ai-content-factory publish | 🟡 Planned |
-| Cron orchestrator notify | 🟡 Planned |
-| Langfuse + LangSmith traces | ✅ | Optional `LANGFUSE_*` / `LANGSMITH_*` — `GET /api/observability/status` |
-| Real FinOps metering + budget enforcement | ✅ Website Build's 4 LLM-calling agents (`agent-requirements-analyst`, `agent-ui-design-analyst`, `agent-fe-builder`, `agent-be-builder`) via [agent-finops](https://github.com/vpeetla-ai/agent-finops) — a budget breach trips the real kill-switch. `ai_content_pipeline`/`stock_research` agents not wired yet. See [ADR-0004](adr/0004-real-finops-metering-website-build.md) |
+| ai-content-factory publish | ✅ Wired — ACF calls `POST /api/gateway/tool-request` for `publish.{platform}` via `aegis_gateway.py` (fail-closed under `PRODUCTION_STRICT`) |
+| Cron orchestrator notify | 🟡 Partial — content/stock cron are AuthRequired managed runs; per-tool notify intercept still incomplete |
+| Langfuse + LangSmith traces | ✅ | Optional `LANGFUSE_*` / `LANGSMITH_*` — `GET /api/observability/status`; also mirrored on `GET /api/v1/ops/metrics` with pending HITL count |
+| Real FinOps metering + budget enforcement | ✅ Website Build's 4 LLM agents + **AI Content Pipeline** `agent-content-topic-architect` via [agent-finops](https://github.com/vpeetla-ai/agent-finops). Stock research has no LLM `complete()` today (synthetic briefing) — not metered. See [ADR-0004](adr/0004-real-finops-metering-website-build.md) |
 | MCP — gate inbound (agent → external MCP server) | ✅ `McpGovernanceProxy` routes every outbound MCP tool call through policy/HITL/kill-switch before it reaches `filesystem`/`github`/`postgres`/`slack`/`custom_enterprise_mcp` |
 | MCP — expose outbound (external client → AegisAI) | ✅ `interfaces/mcp/server.py` exposes `list_registered_agents`, `check_agent_budget`, `get_kill_switch_status`, `run_website_build` as real MCP tools, calling the same governed singletons the HTTP API uses — see [ADR-0005](adr/0005-mcp-tool-exposure.md) |
 | Real AWS deploy path (ECS Fargate + RDS + ALB) | ✅ `deploy/terraform/aws/` — verified with a real `terraform apply`/`destroy` cycle against a live AWS account (real orchestrator run completed against real RDS-backed persistence, then torn down). See [ADR-0006](adr/0006-paas-vs-iac-deploy-tradeoffs.md) |

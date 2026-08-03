@@ -111,11 +111,23 @@ class ResearcherAgent:
 class TopicArchitectAgent:
     """Generates LinkedIn/Substack topic ideas for Principal AI Architect positioning."""
 
-    def __init__(self, llm: LLMGateway | None = None) -> None:
+    AGENT_ID = "agent-content-topic-architect"
+
+    def __init__(
+        self,
+        llm: LLMGateway | None = None,
+        *,
+        finops_client: Any | None = None,
+        agent_registry: Any | None = None,
+        kill_switch_service: Any | None = None,
+    ) -> None:
         self._llm = llm or LLMGateway(
             provider=os.getenv("AEGISAI_LLM_PROVIDER", "local"),
             model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
         )
+        self._finops_client = finops_client
+        self._agent_registry = agent_registry
+        self._kill_switch_service = kill_switch_service
 
     def run(self, state: PipelineState) -> PipelineState:
         state.agent_traces.append({"agent": "topic_architect", "step": "generate_topics", "status": "active"})
@@ -129,6 +141,20 @@ class TopicArchitectAgent:
         )
         user = f"Signals:\n{signals}\nTrends: {trends}\nFocus: {', '.join(FOCUS_AREAS)}"
         response = self._llm.complete(system, user)
+        from aegisai.application.orchestration.cron_finops import meter_llm_response
+
+        breached = meter_llm_response(
+            agent_id=self.AGENT_ID,
+            response=response,
+            finops_client=self._finops_client,
+            agent_registry=self._agent_registry,
+            kill_switch_service=self._kill_switch_service,
+        )
+        state.agent_traces[-1]["finops_budget_breached"] = breached
+        if breached:
+            state.agent_traces[-1]["status"] = "blocked_by_kill_switch"
+            state.status = "blocked_by_kill_switch"
+            return state
         try:
             state.topics = json.loads(response.content)
         except json.JSONDecodeError:
@@ -253,10 +279,18 @@ class AIContentPipelineOrchestrator:
         self,
         gateway_fn: GatewayFn | None = None,
         hitl_persist_fn: HitlPersistFn | None = None,
+        *,
+        finops_client: Any | None = None,
+        agent_registry: Any | None = None,
+        kill_switch_service: Any | None = None,
     ) -> None:
         self._scout = ScoutAgent()
         self._researcher = ResearcherAgent()
-        self._architect = TopicArchitectAgent()
+        self._architect = TopicArchitectAgent(
+            finops_client=finops_client,
+            agent_registry=agent_registry,
+            kill_switch_service=kill_switch_service,
+        )
         self._publisher = PublisherAgent(gateway_fn=gateway_fn, hitl_persist_fn=hitl_persist_fn)
         self._runs: list[dict[str, Any]] = []
 
@@ -269,7 +303,8 @@ class AIContentPipelineOrchestrator:
         state = self._scout.run(state)
         state = self._researcher.run(state)
         state = self._architect.run(state)
-        state = self._publisher.run(state)
+        if state.status != "blocked_by_kill_switch":
+            state = self._publisher.run(state)
         payload = {
             "orchestrator_id": self.ORCHESTRATOR_ID,
             "run_id": state.run_id,

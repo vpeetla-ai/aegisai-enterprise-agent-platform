@@ -16,36 +16,68 @@ What I refused: another per-repo fake FinOps module. The org built [`agent-finop
 
 ## Decision
 
-1. `LLMResponse` carries real `prompt_tokens` / `completion_tokens` from OpenAI/Gemini. Local/unconfigured paths stay `0` — honest: no call, no tokens.
-2. Registry gets `budget_usd` + `record_usage` write-through from agent-finops — cache, not a second source of truth.
-3. **Vertical slice:** Website Build's four LLM-calling LangGraph nodes meter after each `complete()`, and a breach trips the real `KillSwitchService`.
-4. The graph **halts** on breach (`conditional_edges` / sequential checks) — no later nodes, no GitHub push / deploy after a mid-node trip.
-5. Without `AGENTFINOPS_API_URL`, the client computes locally and never reports breach — Demo stays Demo until an operator points at a real ledger.
+1. `LLMGateway.LLMResponse` now carries real `prompt_tokens`/`completion_tokens`, parsed from
+   OpenAI's `data["usage"]` and Gemini's `data["usageMetadata"]` (both already present in the
+   provider response, previously discarded). `local`/unconfigured paths keep the default `0` —
+   honest, since no real call was made.
+2. `RegisteredAgent` gained `budget_usd: float | None`. `AgentRegistryStore` (both
+   `InMemoryAgentRegistryStore` and `PostgresAgentRegistryStore`) gained `update_cost`, mirroring
+   the existing `update_status` pattern exactly. `AgentRegistryService.record_usage(agent_id,
+   cost_usd)` adds real cost to `monthly_cost_usd` — a write-through cache from agent-finops's own
+   ledger, not a second source of truth.
+3. **Vertical slice: `WebsiteBuildOrchestrator`'s 5 LangGraph nodes**, chosen because 4 of them
+   call an LLM and already map 1:1 to existing registry entries (`agent-requirements-analyst`,
+   `agent-ui-design-analyst`, `agent-fe-builder`, `agent-be-builder` — `review_deploy` has no LLM
+   call, nothing to meter). After each node's `LLMGateway.complete()` call,
+   `WebsiteBuildLangGraph._meter_llm_call` calls `agent_finops_client.FinOpsClient.record_usage(...)`,
+   writes the real cost through to the local registry, and — if breached —
+   calls the existing, real `KillSwitchService.activate("agent", agent_id, ...)`.
+4. **The graph now halts on a breach** instead of continuing regardless: `_build_graph` replaced
+   unconditional `add_edge` calls with `add_conditional_edges`, routing to `END` once
+   `state["status"] == "blocked_by_kill_switch"`; the `_sequential` fallback checks the same
+   condition between nodes. `fe_impl`/`be_impl` additionally skip their GitHub push / deploy
+   gateway calls when their own node's call breaches — no side effect fires after the budget
+   trips mid-node.
+5. Given no `AGENTFINOPS_API_URL` is set, `FinOpsClient` computes cost locally and never reports
+   a breach (no persisted ledger to check against) — the existing default demo behavior is
+   unaffected until an operator points this at a real `agent-finops` deployment.
+6. **Follow-on vertical slice:** AI Content Pipeline's `TopicArchitectAgent`
+   (`agent-content-topic-architect`) meters via the same `FinOpsClient` helper
+   (`cron_finops.meter_llm_response`) and halts before Slack publish on breach.
 
-**Implemented vs Planned:** Website Build metering ✅. `ai_content_pipeline` / `stock_research` agents still seed until wired.
+**Implemented vs Planned:** Website Build metering ✅. AI Content Pipeline topic architect
+metering ✅. `stock_research` has no LLM `complete()` path today (synthetic briefing) — remains
+unwired until it calls a model.
 
 ## Consequences
 
 ### Positive
-
-- FinOps numbers for those four agents are real
-- Kill-switch has a real trigger, not only a manual API
-- Tests cover write-through, activation, no-breach, and full-run halt
+- FinOps's numbers for these 4 Website Build agents are now real, not seed data — the first genuine fix of the
+  gap ADR-0003 flagged.
+- Content Pipeline topic architect cost is attributed to a registry-backed agent identity.
+- The kill-switch — already real, already working — now has a real trigger condition instead of
+  only being reachable via the manual `/api/kill-switches` endpoint.
+- Tests prove the reaction to a breach signal for Website Build and Content Pipeline.
 
 ### Negative
-
-- Other orchestrators not wired yet
-- Breach detection is dormant until FinOps URL/key are set — same honesty as every other opt-in gate
+- `stock_research` remains unwired until it performs a real LLM `complete()`.
+- Requires `AGENTFINOPS_API_URL`/`AGENTFINOPS_API_KEY` actually set for breach detection to mean
+  anything — unset, this ADR's enforcement path is present but dormant, same caveat as every
+  other opt-in gate built this session.
 
 ### Follow-ups
-
-- Wire remaining orchestrators once they have registry-backed agent IDs
-- Auth-default and OPA fail-closed remain separate product calls (from ADR-0003)
+- Wire `stock_research` once it has an LLM completion path and registry-backed agent identity.
+- ADR-0005 (proposed, carried from ADR-0003): decide whether `AEGISAI_ENFORCE_AUTH=true` should
+  be the production default.
+- ADR-0006 (proposed, carried from ADR-0003): OPA fail-closed for critical actions.
 
 ## References
 
 - `services/api/src/aegisai/application/knowledge/llm_gateway.py::LLMResponse`
 - `services/api/src/aegisai/application/orchestration/website_build_pipeline.py::WebsiteBuildLangGraph._meter_llm_call`
+- `services/api/src/aegisai/application/orchestration/cron_finops.py`
+- `services/api/src/aegisai/application/orchestration/ai_content_pipeline.py::TopicArchitectAgent`
 - `services/api/src/aegisai/product/agent_registry.py::AgentRegistryService.record_usage`
 - `services/api/tests/test_website_build_finops.py`
+- `services/api/tests/test_content_pipeline_finops.py`
 - [agent-finops](https://github.com/vpeetla-ai/agent-finops)

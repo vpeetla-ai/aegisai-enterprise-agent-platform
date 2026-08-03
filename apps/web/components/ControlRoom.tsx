@@ -1,25 +1,86 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiHealthGate } from "@/components/control-plane/ApiHealthGate";
 import { ReviewModeBanner } from "@/components/control-plane/ReviewModeBanner";
 import { ArchitectLandingStrip } from "@/components/ArchitectLandingStrip";
 import { GlassboxGovernance } from "@/components/GlassboxGovernance";
 import { GovernanceModuleView } from "@/components/control-plane/GovernanceModuleView";
+import type { DashboardModule } from "@/components/control-plane/GovernanceDashboard";
 import { TopNavigation } from "@/components/navigation/TopNavigation";
 import { useControlPlane } from "@/hooks/useControlPlane";
 
 type WorkbenchView = "glassbox" | "product" | "architecture";
 
+const MODULES: DashboardModule[] = [
+  "dashboard",
+  "monitor",
+  "agents",
+  "governance",
+  "gateway",
+  "llm-plane",
+  "hitl",
+  "finops",
+  "incidents",
+  "orchestrators",
+  "onboard",
+];
+
+function parseDeepLink(): { view?: WorkbenchView; module?: DashboardModule } {
+  if (typeof window === "undefined") return {};
+  const params = new URLSearchParams(window.location.search);
+  const viewRaw = params.get("view");
+  const moduleRaw = params.get("module");
+  const view =
+    viewRaw === "glassbox" || viewRaw === "product" || viewRaw === "architecture"
+      ? viewRaw
+      : undefined;
+  const module =
+    moduleRaw && (MODULES as string[]).includes(moduleRaw)
+      ? (moduleRaw as DashboardModule)
+      : undefined;
+  return { view, module };
+}
+
 export function ControlRoom() {
   const cp = useControlPlane();
   const [view, setView] = useState<WorkbenchView>("glassbox");
+
+  useEffect(() => {
+    const { view: deepView, module: deepModule } = parseDeepLink();
+    if (deepView) setView(deepView);
+    if (deepModule) {
+      setView((v) => (deepView ? deepView : "product"));
+      cp.selectModule(deepModule);
+    }
+    // Deep-link once on mount for VAP / portfolio HITL entry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep shareable ?view=&module= in sync after navigation (HITL / orchestrators polish).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    params.set("view", view);
+    if (view === "product") {
+      params.set("module", cp.activeModule);
+    } else {
+      params.delete("module");
+    }
+    const next = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState(null, "", next);
+  }, [view, cp.activeModule]);
+
+  const selectModuleAndOperate = (module: DashboardModule) => {
+    setView("product");
+    cp.selectModule(module);
+  };
 
   return (
     <main className="shell shell-clean">
       <TopNavigation
         activeModule={cp.activeModule}
-        onSelectModule={cp.selectModule}
+        onSelectModule={selectModuleAndOperate}
         apiHealthy={cp.apiHealth.isReady}
         onRecheckApi={() => void cp.apiHealth.check()}
       />
@@ -62,11 +123,14 @@ export function ControlRoom() {
         ) : (
           <GovernanceModuleView
           activeModule={cp.activeModule}
-          onBack={() => cp.setActiveModule("dashboard")}
+          onBack={() => {
+            setView("product");
+            cp.setActiveModule("dashboard");
+          }}
           dashboardSummary={cp.dashboardSummary}
           isLoadingDashboard={cp.isLoadingDashboard}
           onRefreshDashboard={() => void cp.refreshDashboard()}
-          onSelectModule={cp.selectModule}
+          onSelectModule={selectModuleAndOperate}
           apiHealthy={cp.apiHealth.isReady}
           governanceMetrics={cp.governanceMetrics}
           onRefreshMetrics={() => void cp.refreshMetrics()}

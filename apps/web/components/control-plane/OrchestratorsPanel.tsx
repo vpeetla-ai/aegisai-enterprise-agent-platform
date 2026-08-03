@@ -114,7 +114,23 @@ export function OrchestratorsPanel({
                     <Play size={14} /> {runLabel(orch.orchestrator_id)}
                   </button>
                 ) : null}
+                {orch.orchestrator_id.includes("content") ? (
+                  <a
+                    className="btn-secondary"
+                    href="https://ai-content-factory.vercel.app/dashboard"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    ACF schedule UI
+                  </a>
+                ) : null}
               </div>
+              {orch.orchestrator_id.includes("content") ? (
+                <p className="orch-last-run">
+                  Cron schedule is env-owned in ACF (<code>GET /api/v1/ops/schedule</code>); this Control
+                  Room triggers governed runs and meters FinOps when configured.
+                </p>
+              ) : null}
               {orch.last_run ? (
                 <p className="orch-last-run">
                   Last run: {(orch.last_run as { run_id: string }).run_id} ·{" "}

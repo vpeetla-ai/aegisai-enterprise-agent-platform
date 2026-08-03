@@ -241,6 +241,30 @@ export function ArchitectOverview({
                 <strong>{metrics.active_entities}</strong>
               </article>
             </div>
+            {metrics.extra?.pending_hitl != null ? (
+              <p className="aegis-muted-line">
+                Pending HITL: <strong>{String(metrics.extra.pending_hitl)}</strong>
+                {typeof metrics.extra.hitl_deep_link === "string" ? (
+                  <>
+                    {" · "}
+                    <a href={String(metrics.extra.hitl_deep_link)}>Open HITL queue</a>
+                  </>
+                ) : null}
+              </p>
+            ) : null}
+            {Array.isArray((metrics.extra?.observability as { exporters?: unknown })?.exporters) ? (
+              <ul className="aegis-compose-planes" aria-label="Observability exporters">
+                {(
+                  (metrics.extra?.observability as { exporters: Array<{ name?: string; state?: string }> })
+                    .exporters || []
+                ).map((ex) => (
+                  <li key={String(ex.name)}>
+                    <strong>{ex.name || "exporter"}</strong>
+                    <span>{ex.state || "unknown"}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
             <p className="aegis-muted-line">
               <code>{metricsUrl.replace(/^https?:\/\/[^/]+/, "")}</code>
               {" · "}
