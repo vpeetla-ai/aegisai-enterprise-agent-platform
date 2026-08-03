@@ -4,66 +4,40 @@
 
 Accepted — 2026-07-05
 
+## In one breath (panel)
+
+I'd keep Render as the day-to-day path and prove ECS/RDS/ALB with a real apply → health → tear-down — IaC when you need VPC/IAM control, not because "more infra" sounds Principal.
+
 ## Context
 
-Every repo in this org deploys to Render/Vercel PaaS ([ADR-005 in ai-architecture-portfolio](https://github.com/vpeetla-ai/ai-architecture-portfolio/blob/main/adr/ADR-005-reference-stack-free-tier.md)),
-which is the right default for iteration speed and near-zero ops overhead — but it left the
-whole org with zero evidence of real cloud infrastructure ownership (VPC design, container
-orchestration, IAM, load balancing, managed database provisioning), despite that being core
-Principal AI Architect / MLOps territory. AegisAI is the flagship governance control plane —
-the most narratively important service in the org to show running on a classic enterprise AWS
-pattern, so Phase C of the top-1% AI Architect program targeted it specifically.
+Org default is Render/Vercel PaaS ([portfolio ADR-005](https://github.com/vpeetla-ai/ai-architecture-portfolio/blob/main/adr/ADR-005-reference-stack-free-tier.md)) — right for iteration speed. That left zero *operated* evidence of VPC, containers, IAM, ALB, managed DB — despite that being core Architect/MLOps territory.
+
+AegisAI is the flagship governance plane, so Phase C targeted it. What I refused: replacing PaaS with AWS as the permanent second production, or pretending free-tier Render equals enterprise SLOs.
 
 ## Decision
 
-Added `deploy/terraform/aws/`: VPC (public subnets only, no NAT Gateway), ECS Fargate, an
-Application Load Balancer, RDS Postgres (`db.t4g.micro`, single-AZ), IAM execution/task roles,
-and Secrets Manager for `DATABASE_URL` — a real, alternative deploy path to `render.yaml`, not
-a replacement for it.
+Added `deploy/terraform/aws/`: VPC (public subnets only, no NAT), ECS Fargate, ALB, RDS Postgres (`db.t4g.micro`, single-AZ), IAM roles, Secrets Manager for `DATABASE_URL`. Alternative path to `render.yaml`, not a replacement.
 
-**When Render/Vercel PaaS is the right call:** fast iteration, no dedicated ops capacity,
-traffic low enough that PaaS free/starter tiers cover it, and the team doesn't need direct
-control over networking or IAM boundaries. This describes AegisAI's normal operating mode
-today.
+**When PaaS wins:** fast iteration, no dedicated ops, traffic fits free/starter, no need for direct networking/IAM. That's normal operating mode today.
 
-**When Terraform + ECS/RDS/ALB earns its complexity:** when you need direct control over VPC
-network boundaries, IAM roles scoped per-service (an execution role that can only pull this
-image and read this one secret, a task role separate from that), or load-balancer-level
-routing/health-check behavior PaaS abstracts away. None of that was needed here — this was
-built to gain and demonstrate that operational capability, not because AegisAI's traffic or ops
-needs outgrew Render.
+**When Terraform + ECS/RDS/ALB earns it:** VPC boundaries, per-service IAM, LB health/routing PaaS hides. Built here to *demonstrate* that capability — AegisAI traffic did not outgrow Render.
 
 ## Consequences
 
 ### Positive
-- Real, verified deploy: `terraform apply` created 26 real AWS resources; the live service's
-  `/health` endpoint confirmed `"persistence":{"mode":"postgres"}` (genuinely connected to
-  RDS, not falling back to SQLite); a real `POST /api/orchestrators/website-build/run` call
-  completed successfully against the live ECS Fargate task; `terraform destroy` cleanly removed
-  everything — a genuine stand-up/verify/tear-down cycle.
-- Found and fixed two real bugs only real deployment could surface: the `Dockerfile` couldn't
-  build at all (the `python:3.13-slim` base has no `git`, and `requirements.txt` depends on
-  `agent-finops` via a `git+https` source — this had apparently never been built as a real
-  container image since that dependency was added), and the ECR repository couldn't be torn
-  down without `force_delete = true` since it still held the pushed image.
-- A transient AWS eventual-consistency issue (ECS tried to read a just-created Secrets Manager
-  value before it fully propagated) resolved itself on `aws ecs update-service --force-new-
-  deployment` — documented here as an operational note, not a Terraform bug.
-- Documents a genuine engineering trade-off (when to reach for IaC vs. PaaS) rather than
-  reflexively treating "more infrastructure" as inherently better.
+
+- Verified cycle: `terraform apply` → live `/health` with `"persistence":{"mode":"postgres"}` → real website-build run on Fargate → `destroy`
+- Surfaced real bugs only deploy finds (Dockerfile missing `git` for `git+https` dep; ECR needed `force_delete`)
+- Documents the trade-off instead of "infra good, PaaS bad"
 
 ### Negative
-- Real, if temporary, cloud spend: the ALB costs roughly $16/month whether or not it's serving
-  traffic, and the Fargate task + RDS add roughly $20–30/month combined while running.
-  Mitigated by the stand-up/verify/tear-down operating model — this is not left running as a
-  second production deployment of AegisAI.
-- Public subnets only (no NAT Gateway) means the ECS task gets a public IP directly, rather
-  than the more common private-subnet-plus-NAT pattern — a deliberate cost trade-off (~$32/mo
-  saved), not the default enterprise topology; worth calling out explicitly rather than
-  presenting it as unqualified best practice.
+
+- Real temporary spend (ALB ~$16/mo whether idle; Fargate+RDS roughly $20–30/mo while up) — mitigated by stand-up/verify/tear-down, not a second always-on prod
+- Public subnets only (no NAT) = public task IP — deliberate cost trade-off (~$32/mo saved), not the default private+NAT enterprise topology. Call that out; don't sell it as unqualified best practice.
 
 ## References
-- `deploy/terraform/aws/` (main.tf, ecs.tf, rds.tf, secrets.tf, variables.tf, outputs.tf, README.md)
-- `render.yaml` (the PaaS path this doesn't replace)
-- [agent-finops ADR-0002](https://github.com/vpeetla-ai/agent-finops/blob/main/docs/adr/0002-paas-vs-iac-deploy-tradeoffs.md) (the equivalent decision on GCP for agent-finops)
+
+- `deploy/terraform/aws/`
+- `render.yaml` (PaaS path this doesn't replace)
+- [agent-finops ADR-0002](https://github.com/vpeetla-ai/agent-finops/blob/main/docs/adr/0002-paas-vs-iac-deploy-tradeoffs.md)
 - [ai-architecture-portfolio ADR-015](https://github.com/vpeetla-ai/ai-architecture-portfolio/blob/main/adr/ADR-015-real-aws-gcp-infra-phase-c.md)

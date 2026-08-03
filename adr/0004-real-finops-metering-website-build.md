@@ -4,16 +4,15 @@
 
 Accepted
 
+## In one breath (panel)
+
+I'd meter real provider tokens into a shared FinOps ledger and halt the graph on budget breach — a seeded cost dashboard is demo theater, not FinOps.
+
 ## Context
 
-ADR-0003 flagged as a follow-up that FinOps's `monthly_cost_usd` was static seed data
-(`infrastructure/persistence/agent_registry_seeds.py`), never real token/request metering, and
-that `LLMGateway`'s `LLMResponse` discarded the real `usage`/`usageMetadata` field its own OpenAI
-and Gemini responses already carry. Rather than build metering logic inside this repo, the org
-built a standalone service — [`agent-finops`](https://github.com/vpeetla-ai/agent-finops), see
-[org ADR-011](https://github.com/vpeetla-ai/ai-architecture-portfolio/blob/main/adr/ADR-011-agent-finops-standalone-service.md)
-— matching this org's pattern of single-purpose repos rather than embedded per-repo logic. This
-ADR covers wiring this repo as agent-finops's first real consumer.
+ADR-0003 called out the scar: FinOps `monthly_cost_usd` was static seed data, and `LLMGateway` discarded the `usage` / `usageMetadata` the providers already returned. Fixing pricing math *inside* AegisAI would have duplicated what every other LLM-calling repo also needs.
+
+What I refused: another per-repo fake FinOps module. The org built [`agent-finops`](https://github.com/vpeetla-ai/agent-finops) as the ledger; this ADR wires AegisAI as the first real consumer.
 
 ## Decision
 
@@ -73,6 +72,7 @@ unwired until it calls a model.
 - ADR-0006 (proposed, carried from ADR-0003): OPA fail-closed for critical actions.
 
 ## References
+
 - `services/api/src/aegisai/application/knowledge/llm_gateway.py::LLMResponse`
 - `services/api/src/aegisai/application/orchestration/website_build_pipeline.py::WebsiteBuildLangGraph._meter_llm_call`
 - `services/api/src/aegisai/application/orchestration/cron_finops.py`
