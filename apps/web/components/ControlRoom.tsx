@@ -35,11 +35,12 @@ function parseDeepLink(): { view?: WorkbenchView; module?: DashboardModule } {
     viewRaw === "glassbox" || viewRaw === "product" || viewRaw === "architecture"
       ? viewRaw
       : undefined;
-  const module =
+  // Avoid binding name `module` — Next.js eslint forbids it (no-assign-module-variable).
+  const moduleId =
     moduleRaw && (MODULES as string[]).includes(moduleRaw)
       ? (moduleRaw as DashboardModule)
       : undefined;
-  return { view, module };
+  return { view, module: moduleId };
 }
 
 export function ControlRoom() {

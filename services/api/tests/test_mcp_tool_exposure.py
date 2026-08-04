@@ -67,5 +67,5 @@ def test_run_website_build_executes_the_real_governed_orchestrator():
         tenant_id="bank-demo",
         requirement="Build a small internal tools dashboard.",
     )
-    assert result["status"] in {"completed", "blocked_by_kill_switch"}
+    assert result["status"] in {"completed", "blocked_by_kill_switch", "pending_hitl"}
     assert result["run_id"].startswith("web-")

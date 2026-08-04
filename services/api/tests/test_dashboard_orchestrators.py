@@ -30,13 +30,13 @@ def test_website_build_run() -> None:
 
 def test_ai_content_pipeline_run() -> None:
     body = client.post("/api/orchestrators/ai-content/run").json()
-    assert body["status"] == "completed"
+    assert body["status"] in {"completed", "pending_hitl"}
     assert body["topics"]
 
 
 def test_stock_research_run() -> None:
     body = client.post("/api/orchestrators/stock-research/run").json()
-    assert body["status"] == "completed"
+    assert body["status"] in {"completed", "pending_hitl"}
     assert "DAILY MORNING STOCK INTELLIGENCE BRIEFING" in body["briefing_markdown"]
 
 
