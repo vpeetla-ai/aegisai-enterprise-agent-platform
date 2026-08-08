@@ -33,6 +33,9 @@ class AgentRegistryService:
         data_classes: tuple[str, ...],
         status: str = "pilot",
         model_provider: str = "OpenAI/local fallback",
+        purpose: str = "",
+        passport_expires_at: str | None = None,
+        eval_baseline_id: str | None = None,
     ) -> RegisteredAgent:
         agent = RegisteredAgent(
             agent_id=agent_id,
@@ -49,6 +52,9 @@ class AgentRegistryService:
             monthly_cost_usd=0.0,
             open_incidents=0,
             value_metric="Pending production value baseline",
+            purpose=purpose,
+            passport_expires_at=passport_expires_at,
+            eval_baseline_id=eval_baseline_id,
         )
         return self._store.upsert_agent(agent)
 
@@ -72,9 +78,11 @@ class AgentRegistryService:
             "agents": [self.to_payload(agent) for agent in agents],
             "controls": [
                 "Owner, domain, tools, data classes, risk tier, and autonomy level are required.",
+                "Passport fields (purpose, expiry, eval baseline) bound authority to a mission window.",
                 "High-risk agents require policy, eval, observability, and kill-switch readiness.",
                 "Production promotion must pass release gates and reviewer approval.",
-                "Revoked agents cannot receive execution tokens.",
+                "Revoked agents and expired passports cannot receive execution tokens.",
+                "Drill: shadow → bounded execute → revoke token (POST /api/execution-tokens/revoke).",
             ],
         }
 
@@ -96,6 +104,17 @@ class AgentRegistryService:
             "open_incidents": agent.open_incidents,
             "value_metric": agent.value_metric,
             "budget_usd": agent.budget_usd,
+            "purpose": agent.purpose,
+            "passport_expires_at": agent.passport_expires_at,
+            "eval_baseline_id": agent.eval_baseline_id,
+            "passport": {
+                "purpose": agent.purpose,
+                "expires_at": agent.passport_expires_at,
+                "eval_baseline_id": agent.eval_baseline_id,
+                "owner": agent.owner,
+                "risk_tier": agent.risk_tier,
+                "allowed_tools": list(agent.allowed_tools),
+            },
         }
 
     def summary(self) -> dict[str, object]:

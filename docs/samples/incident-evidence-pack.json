@@ -1,0 +1,89 @@
+{
+  "actor_id": "reviewer-redacted",
+  "agent_id": "agent-refund",
+  "agent_passport": {
+    "allowed_tools": [
+      "rag.search_policy_memory",
+      "payments.issue_refund"
+    ],
+    "eval_baseline_id": null,
+    "expires_at": null,
+    "owner": "Finance Operations",
+    "purpose": "",
+    "risk_tier": "high"
+  },
+  "audit_packet": {
+    "action_executions": [],
+    "action_proposals": [
+      {
+        "action_type": "issue_refund",
+        "proposal_id": "prop-1"
+      }
+    ],
+    "agent_traces": [
+      {
+        "agent_name": "agent-refund",
+        "status": "paused",
+        "step_name": "issue_refund"
+      }
+    ],
+    "approval_tasks": [
+      {
+        "reviewer": "redacted",
+        "status": "approved",
+        "task_id": "hitl-1"
+      }
+    ],
+    "assurance": {
+      "instructions": "Compliance teams can verify packet integrity before archival. Production deployments should use AEGISAI_AUDIT_SIGNING_MODE=kms.",
+      "tamper_evident": true,
+      "verification_endpoint": "POST /api/audit-packets/verify"
+    },
+    "audit_chain_valid": true,
+    "audit_events": [
+      {
+        "event_type": "gateway.decision",
+        "payload": {
+          "decision": "approval_required"
+        }
+      }
+    ],
+    "case": {
+      "agent_id": "agent-refund",
+      "case_id": "case-panel-redacted"
+    },
+    "generated_at": "2026-08-08T06:52:46.892533+00:00",
+    "governance_decisions": [
+      {
+        "decision": "human_approval",
+        "policy_version": "policy-2026.05"
+      }
+    ],
+    "packet_type": "aegisai.case_audit_packet",
+    "signature": {
+      "algorithm": "HMAC-SHA256",
+      "content_digest": "fc88ef315c54d575ca5a1316fda792a197470090b61c61b09acccd44d24071b4",
+      "key_id": "aegisai-audit-signing-key-v1",
+      "signature": "uOybAJSitPTCbHrJkn4RMB3Cy3/2ur06Jx0mvWPmJNA=",
+      "signed_at": "2026-08-08T06:52:46.892760+00:00",
+      "signing_mode": "local_hmac"
+    }
+  },
+  "case_id": "case-panel-redacted",
+  "cost_usd": 0.12,
+  "gateway_decision": "approval_required",
+  "generated_at": "2026-08-08T06:52:46.892816+00:00",
+  "packet_type": "aegisai.incident_evidence_pack",
+  "policy_version": "policy-2026.05",
+  "signature": {
+    "algorithm": "HMAC-SHA256",
+    "content_digest": "fc88ef315c54d575ca5a1316fda792a197470090b61c61b09acccd44d24071b4",
+    "key_id": "aegisai-audit-signing-key-v1",
+    "signature": "uOybAJSitPTCbHrJkn4RMB3Cy3/2ur06Jx0mvWPmJNA=",
+    "signed_at": "2026-08-08T06:52:46.892760+00:00",
+    "signing_mode": "local_hmac"
+  },
+  "tenant_id": "bank-demo",
+  "tool_args_hash": "0041e8d654e2b39089018da3614a7a349f506b03fb036790dc37dc3e5d2455ce",
+  "tool_name": "payments.issue_refund"
+}

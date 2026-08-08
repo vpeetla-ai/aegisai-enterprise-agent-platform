@@ -63,7 +63,10 @@ AegisAI is the **governance control plane** for that scar:
 | Seed monitor / demo activity | ✅ Demo default seeds synthetic monitor events when audit is empty; **`PRODUCTION_STRICT=true` disables seed** so Monitor shows only real audit rows (empty until traffic) |
 | Content + Stock cron orchestrators | ✅ Managed runs (no per-tool gateway intercept yet); now require `AuthRequired` like every other mutating route — see [ADR-0003](adr/0003-orchestrator-auth-gate.md) |
 | Agent registry Postgres persistence | ✅ `AEGISAI_DB_BACKEND=postgres` — SQLite (dev default) or Postgres via `factory.py` |
-| OPA policy engine | 🟡 Optional — default is builtin policy simulator; **fails open** (advisory, not a hard block) when unavailable |
+| OPA policy engine | 🟡 Optional in demo (builtin fallback). Under **`PRODUCTION_STRICT=true`**, irreversible / customer-impact / high-risk tools **hard-block** when OPA or the policy pack is unavailable (`policy_unavailable`) — see [ADR-0007](adr/0007-fail-closed-policy-plane.md) |
+| Agent passport + token revoke | ✅ Registry purpose / expiry / eval baseline; TTL execution tokens with `jti`; `POST /api/execution-tokens/revoke` |
+| MCP discovery trust gate | ✅ `POST /api/mcp/discover` scans manifests before tools reach the model ([ADR-0008](adr/0008-mcp-discovery-metadata-gate.md)) |
+| Incident evidence pack | ✅ `GET /api/evidence-packs/{tenant}/{case}` + sample [`docs/samples/incident-evidence-pack.json`](docs/samples/incident-evidence-pack.json) |
 | VAP notify gateway | ✅ Wired (`aegis_gateway.py`) |
 | ai-content-factory publish | ✅ Wired — ACF calls `POST /api/gateway/tool-request` for `publish.{platform}` via `aegis_gateway.py` (fail-closed under `PRODUCTION_STRICT`) |
 | Cron orchestrator notify | 🟡 Partial — content/stock cron are AuthRequired managed runs; per-tool notify intercept still incomplete |

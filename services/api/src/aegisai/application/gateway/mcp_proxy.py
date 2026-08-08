@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import uuid4
 
+from aegisai.application.gateway.mcp_metadata_scanner import McpMetadataScanner, McpToolManifest
 from aegisai.product.platform_control_plane import GatewayToolRequest, PlatformControlPlaneService
 
 
@@ -28,8 +29,13 @@ class McpToolCallRequest:
 class McpGovernanceProxy:
     """Routes MCP tool invocations through the same governance gateway as first-class tools."""
 
-    def __init__(self, control_plane: PlatformControlPlaneService) -> None:
+    def __init__(
+        self,
+        control_plane: PlatformControlPlaneService,
+        scanner: McpMetadataScanner | None = None,
+    ) -> None:
         self.control_plane = control_plane
+        self.scanner = scanner or McpMetadataScanner()
 
     def posture(self) -> dict[str, object]:
         return {
@@ -37,9 +43,13 @@ class McpGovernanceProxy:
             "protocol": "Model Context Protocol (MCP)",
             "strategy": (
                 "Agents call MCP tools through AegisAI so policy, HITL, kill switches, "
-                "and audit apply before any side effect reaches an MCP server."
+                "and audit apply before any side effect reaches an MCP server. "
+                "Discovery-time metadata scanning blocks poisoned descriptions before "
+                "tool schemas reach the model."
             ),
             "flow": [
+                "agent.mcp_discover",
+                "aegisai.mcp_metadata_scanner",
                 "agent.mcp_tool_call",
                 "aegisai.mcp_proxy",
                 "governance_gateway",
@@ -53,6 +63,15 @@ class McpGovernanceProxy:
                 "slack",
                 "custom_enterprise_mcp",
             ],
+            "discovery_trust_gate": True,
+        }
+
+    def discover(self, manifests: list[McpToolManifest]) -> dict[str, object]:
+        scan = self.scanner.scan_many(manifests)
+        return {
+            **scan,
+            "gateway": "mcp_discovery",
+            "note": "Only model_visible_tools should be returned to the LLM tool list.",
         }
 
     def invoke(

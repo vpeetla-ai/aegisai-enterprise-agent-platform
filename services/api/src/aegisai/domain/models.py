@@ -145,3 +145,6 @@ class RegisteredAgent:
     open_incidents: int
     value_metric: str
     budget_usd: float | None = None
+    purpose: str = ""
+    passport_expires_at: str | None = None
+    eval_baseline_id: str | None = None

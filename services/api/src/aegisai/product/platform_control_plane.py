@@ -159,6 +159,23 @@ class PlatformControlPlaneService:
                 "registry": {"status": agent.status},
             }
 
+        if _passport_expired(agent.passport_expires_at):
+            return {
+                "product_module": "Governance Gateway",
+                "gateway_decision": "deny",
+                "tool_name": request.tool_name,
+                "agent_id": request.agent_id,
+                "business_explanation": (
+                    f"Agent passport for '{request.agent_id}' expired at {agent.passport_expires_at}."
+                ),
+                "enforcement_steps": ["deny_tool_call", "record_audit_event", "notify_agent_owner"],
+                "registry": {
+                    "status": agent.status,
+                    "passport_expires_at": agent.passport_expires_at,
+                    "passport_expired": True,
+                },
+            }
+
         side_effecting = request.tool_name != "rag.search_policy_memory"
         if side_effecting and request.tool_name not in agent.allowed_tools:
             return {
@@ -335,6 +352,8 @@ class PlatformControlPlaneService:
             "agent_id": request.agent_id,
             "business_explanation": simulation["explanation"],
             "policy_result": simulation,
+            "policy_plane": simulation.get("policy_plane"),
+            "policy_version": simulation.get("policy_version"),
             "authorization": {
                 "allowed": authorization.allowed,
                 "reason": authorization.reason,
@@ -752,3 +771,20 @@ class PlatformControlPlaneService:
         if readiness_score < 90:
             return "launch_with_conditions"
         return "production_ready"
+
+
+def _passport_expired(expires_at: str | None) -> bool:
+    if not expires_at:
+        return False
+    from datetime import datetime, timezone
+
+    raw = expires_at.strip()
+    try:
+        if raw.endswith("Z"):
+            raw = raw[:-1] + "+00:00"
+        parsed = datetime.fromisoformat(raw)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed <= datetime.now(timezone.utc)
+    except ValueError:
+        return False
