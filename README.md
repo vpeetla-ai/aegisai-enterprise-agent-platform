@@ -43,7 +43,7 @@ AegisAI is the **governance control plane** for that scar:
 | No audit trail | Signed audit packets + export |
 | Shadow agents | Onboarding lifecycle: Shadow → Pilot → Approved |
 
-**Demo vs Strict:** public demo may seed monitor events when audit is empty; `PRODUCTION_STRICT=true` disables seed. Auth enforcement (`AEGISAI_ENFORCE_AUTH`) and OPA hard-block are opt-in — see the status table, not a brochure claim.
+**Demo vs Strict:** public demo may seed monitor events when audit is empty; `PRODUCTION_STRICT=true` disables seed. Auth enforcement (`AEGISAI_ENFORCE_AUTH`) and OPA hard-block are opt-in — see the status table. Panel Strict local: [`docs/STRICT_PANEL_PACK.md`](docs/STRICT_PANEL_PACK.md).
 
 ---
 
@@ -67,6 +67,8 @@ AegisAI is the **governance control plane** for that scar:
 | Agent passport + token revoke | ✅ Registry purpose / expiry / eval baseline; TTL execution tokens with `jti`; `POST /api/execution-tokens/revoke` |
 | MCP discovery trust gate | ✅ `POST /api/mcp/discover` scans manifests before tools reach the model ([ADR-0008](adr/0008-mcp-discovery-metadata-gate.md)) |
 | Incident evidence pack | ✅ `GET /api/evidence-packs/{tenant}/{case}` + sample [`docs/samples/incident-evidence-pack.json`](docs/samples/incident-evidence-pack.json) |
+| Golden eval CI gate | ✅ `aegisai.gateway_invariant_v1` via `golden-eval-registry` (CI checkout) |
+| Strict panel pack | ✅ [`docs/STRICT_PANEL_PACK.md`](docs/STRICT_PANEL_PACK.md) · `./scripts/run_strict_local.sh` · `./scripts/probe_strict_panel.sh` |
 | VAP notify gateway | ✅ Wired (`aegis_gateway.py`) |
 | ai-content-factory publish | ✅ Wired — ACF calls `POST /api/gateway/tool-request` for `publish.{platform}` via `aegis_gateway.py` (fail-closed under `PRODUCTION_STRICT`) |
 | Cron orchestrator notify | 🟡 Partial — content/stock cron are AuthRequired managed runs; per-tool notify intercept still incomplete |
