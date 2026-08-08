@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import replace
 from pathlib import Path
 from typing import Protocol
 
@@ -46,23 +47,7 @@ class InMemoryAgentRegistryStore:
         agent = self._agents.get(agent_id)
         if agent is None:
             return None
-        updated = RegisteredAgent(
-            agent_id=agent.agent_id,
-            name=agent.name,
-            owner=agent.owner,
-            business_domain=agent.business_domain,
-            risk_tier=agent.risk_tier,
-            autonomy_level=agent.autonomy_level,
-            status=status,
-            model_provider=agent.model_provider,
-            allowed_tools=agent.allowed_tools,
-            data_classes=agent.data_classes,
-            last_run_at=agent.last_run_at,
-            monthly_cost_usd=agent.monthly_cost_usd,
-            open_incidents=agent.open_incidents,
-            value_metric=agent.value_metric,
-            budget_usd=agent.budget_usd,
-        )
+        updated = replace(agent, status=status)
         self._agents[agent_id] = updated
         return updated
 
@@ -70,28 +55,13 @@ class InMemoryAgentRegistryStore:
         agent = self._agents.get(agent_id)
         if agent is None:
             return None
-        updated = RegisteredAgent(
-            agent_id=agent.agent_id,
-            name=agent.name,
-            owner=agent.owner,
-            business_domain=agent.business_domain,
-            risk_tier=agent.risk_tier,
-            autonomy_level=agent.autonomy_level,
-            status=agent.status,
-            model_provider=agent.model_provider,
-            allowed_tools=agent.allowed_tools,
-            data_classes=agent.data_classes,
-            last_run_at=agent.last_run_at,
-            monthly_cost_usd=monthly_cost_usd,
-            open_incidents=agent.open_incidents,
-            value_metric=agent.value_metric,
-            budget_usd=agent.budget_usd,
-        )
+        updated = replace(agent, monthly_cost_usd=monthly_cost_usd)
         self._agents[agent_id] = updated
         return updated
 
     def count(self) -> int:
         return len(self._agents)
+
 
 
 class PostgresAgentRegistryStore:
@@ -151,6 +121,9 @@ class PostgresAgentRegistryStore:
             open_incidents,
             value_metric,
             budget_usd,
+            purpose,
+            passport_expires_at,
+            eval_baseline_id,
         ) = row
         return RegisteredAgent(
             agent_id=agent_id,
@@ -168,6 +141,9 @@ class PostgresAgentRegistryStore:
             open_incidents=int(open_incidents),
             value_metric=value_metric,
             budget_usd=float(budget_usd) if budget_usd is not None else None,
+            purpose=purpose or "",
+            passport_expires_at=passport_expires_at,
+            eval_baseline_id=eval_baseline_id,
         )
 
     def list_agents(self) -> tuple[RegisteredAgent, ...]:
@@ -177,7 +153,8 @@ class PostgresAgentRegistryStore:
                     """
                     SELECT agent_id, tenant_id, name, owner, business_domain, risk_tier,
                            autonomy_level, status, model_provider, allowed_tools, data_classes,
-                           last_run_at, monthly_cost_usd, open_incidents, value_metric, budget_usd
+                           last_run_at, monthly_cost_usd, open_incidents, value_metric, budget_usd,
+                           purpose, passport_expires_at, eval_baseline_id
                     FROM agent_registry
                     ORDER BY agent_id
                     """
@@ -192,7 +169,8 @@ class PostgresAgentRegistryStore:
                     """
                     SELECT agent_id, tenant_id, name, owner, business_domain, risk_tier,
                            autonomy_level, status, model_provider, allowed_tools, data_classes,
-                           last_run_at, monthly_cost_usd, open_incidents, value_metric, budget_usd
+                           last_run_at, monthly_cost_usd, open_incidents, value_metric, budget_usd,
+                           purpose, passport_expires_at, eval_baseline_id
                     FROM agent_registry WHERE agent_id = %s
                     """,
                     (agent_id,),
@@ -208,9 +186,10 @@ class PostgresAgentRegistryStore:
                     INSERT INTO agent_registry (
                       agent_id, tenant_id, name, owner, business_domain, risk_tier,
                       autonomy_level, status, model_provider, allowed_tools, data_classes,
-                      last_run_at, monthly_cost_usd, open_incidents, value_metric, budget_usd, updated_at
+                      last_run_at, monthly_cost_usd, open_incidents, value_metric, budget_usd,
+                      purpose, passport_expires_at, eval_baseline_id, updated_at
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
                     ON CONFLICT (agent_id) DO UPDATE SET
                       tenant_id = EXCLUDED.tenant_id,
                       name = EXCLUDED.name,
@@ -227,6 +206,9 @@ class PostgresAgentRegistryStore:
                       open_incidents = EXCLUDED.open_incidents,
                       value_metric = EXCLUDED.value_metric,
                       budget_usd = EXCLUDED.budget_usd,
+                      purpose = EXCLUDED.purpose,
+                      passport_expires_at = EXCLUDED.passport_expires_at,
+                      eval_baseline_id = EXCLUDED.eval_baseline_id,
                       updated_at = NOW()
                     """,
                     (
@@ -246,6 +228,9 @@ class PostgresAgentRegistryStore:
                         agent.open_incidents,
                         agent.value_metric,
                         agent.budget_usd,
+                        agent.purpose,
+                        agent.passport_expires_at,
+                        agent.eval_baseline_id,
                     ),
                 )
             connection.commit()
@@ -255,47 +240,14 @@ class PostgresAgentRegistryStore:
         agent = self.get_agent(agent_id)
         if agent is None:
             return None
-        updated = RegisteredAgent(
-            agent_id=agent.agent_id,
-            name=agent.name,
-            owner=agent.owner,
-            business_domain=agent.business_domain,
-            risk_tier=agent.risk_tier,
-            autonomy_level=agent.autonomy_level,
-            status=status,
-            model_provider=agent.model_provider,
-            allowed_tools=agent.allowed_tools,
-            data_classes=agent.data_classes,
-            last_run_at=agent.last_run_at,
-            monthly_cost_usd=agent.monthly_cost_usd,
-            open_incidents=agent.open_incidents,
-            value_metric=agent.value_metric,
-            budget_usd=agent.budget_usd,
-        )
-        return self.upsert_agent(updated)
+        return self.upsert_agent(replace(agent, status=status))
 
     def update_cost(self, agent_id: str, monthly_cost_usd: float) -> RegisteredAgent | None:
         agent = self.get_agent(agent_id)
         if agent is None:
             return None
-        updated = RegisteredAgent(
-            agent_id=agent.agent_id,
-            name=agent.name,
-            owner=agent.owner,
-            business_domain=agent.business_domain,
-            risk_tier=agent.risk_tier,
-            autonomy_level=agent.autonomy_level,
-            status=agent.status,
-            model_provider=agent.model_provider,
-            allowed_tools=agent.allowed_tools,
-            data_classes=agent.data_classes,
-            last_run_at=agent.last_run_at,
-            monthly_cost_usd=monthly_cost_usd,
-            open_incidents=agent.open_incidents,
-            value_metric=agent.value_metric,
-            budget_usd=agent.budget_usd,
-        )
-        return self.upsert_agent(updated)
+        return self.upsert_agent(replace(agent, monthly_cost_usd=monthly_cost_usd))
+
 
     def count(self) -> int:
         with self._psycopg.connect(self.database_url) as connection:

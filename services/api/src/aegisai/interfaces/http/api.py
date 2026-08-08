@@ -16,6 +16,8 @@ from aegisai.application.execution import ApprovedActionExecutionBroker
 from aegisai.application.execution.connectors.http_connector import HttpConnectorManager
 from aegisai.application.execution.tokens import ExecutionTokenService
 from aegisai.application.gateway import McpGovernanceProxy, McpToolCallRequest
+from aegisai.application.gateway.mcp_metadata_scanner import McpToolManifest
+from aegisai.product.evidence_pack import IncidentEvidencePackBuilder
 from aegisai.application.guardrails.opa_policy import OpaPolicyEngine
 from aegisai.application.knowledge import SQLiteVectorMemoryStore
 from aegisai.application.orchestration import (
@@ -30,7 +32,13 @@ from aegisai.domain import DataClassification, ExecutionCommand, ExecutionResult
 from aegisai.infrastructure.persistence import build_control_plane_store
 from aegisai.infrastructure.persistence.factory import build_agent_registry_service
 from aegisai.interfaces.http.auth import AuthRequired, ReviewerAuthRequired, auth_posture
-from aegisai.interfaces.http.enforcement import pilot_mode, pilot_posture, production_strict, require_execution_token
+from aegisai.interfaces.http.enforcement import (
+    pilot_mode,
+    pilot_posture,
+    policy_plane_status,
+    production_strict,
+    require_execution_token,
+)
 from aegisai.product.gateway_metrics import GatewayMetricsService
 from aegisai.product.audit_signing import AuditPacketSigner
 from aegisai.observability import build_default_observability_service
@@ -144,6 +152,14 @@ class AgentLifecycleRegisterRequest(BaseModel):
     model_provider: str = Field(default="OpenAI/local fallback")
     allowed_tools: list[str] = Field(default_factory=lambda: ["rag.search_policy_memory"])
     data_classes: list[str] = Field(default_factory=lambda: ["internal", "confidential"])
+    purpose: str = Field(default="")
+    passport_expires_at: str | None = Field(default=None)
+    eval_baseline_id: str | None = Field(default=None)
+
+
+class ExecutionTokenRevokeRequest(BaseModel):
+    token: str | None = Field(default=None, description="Full execution token to revoke")
+    jti: str | None = Field(default=None, description="Token jti when token body is unavailable")
 
 
 class AgentLifecycleStatusRequest(BaseModel):
@@ -217,6 +233,20 @@ class McpToolCallPayload(BaseModel):
     customer_impact: bool = Field(default=False)
 
 
+class McpToolManifestPayload(BaseModel):
+    name: str
+    description: str = ""
+    input_schema: dict[str, object] | None = None
+    owner: str | None = None
+    risk_class: str | None = None
+    manifest_sha256: str | None = None
+    mcp_server: str = "custom_enterprise_mcp"
+
+
+class McpDiscoverPayload(BaseModel):
+    tools: list[McpToolManifestPayload] = Field(default_factory=list)
+
+
 class GatewayToolRequestPayload(BaseModel):
     tenant_id: str = Field(default="bank-demo")
     agent_id: str = Field(default="agent-refund")
@@ -256,6 +286,10 @@ finops_service = FinOpsService(agent_registry_service)
 slack_approval_service = SlackApprovalService()
 audit_signer = AuditPacketSigner()
 audit_packet_exporter = AuditPacketExporter(signer=audit_signer)
+incident_evidence_pack_builder = IncidentEvidencePackBuilder(
+    exporter=audit_packet_exporter,
+    agent_registry=agent_registry_service,
+)
 platform_control_plane_service = PlatformControlPlaneService(
     agent_registry=agent_registry_service,
     identity_service=identity_service,
@@ -433,6 +467,7 @@ def health() -> dict[str, object]:
         "audit_chain_valid": control_plane_store.verify_audit_chain("bank-demo"),
         "persistence": persistence,
         "policy_engine": "opa" if OpaPolicyEngine.available() else "builtin",
+        "policy_plane": policy_plane_status(),
         "slack_approvals": slack_approval_service.configured,
         "connector_registry": execution_broker.connector_registry.catalog(),
         "connector_count": len(execution_broker.connector_registry.catalog()),
@@ -464,6 +499,7 @@ def root() -> dict[str, object]:
             "GET /api/agent-registry/lifecycle",
             "POST /api/agent-registry/lifecycle",
             "PATCH /api/agent-registry/lifecycle/{agent_id}/status",
+            "POST /api/execution-tokens/revoke",
             "GET /api/llm-plane/gateway-metrics",
             "GET /api/llm-plane/cache-metrics",
             "GET /api/llm-plane/routing-decisions",
@@ -504,7 +540,9 @@ def root() -> dict[str, object]:
             "POST /api/connectors/http/test",
             "DELETE /api/connectors/http/{connector_id}",
             "GET /api/mcp/posture",
+            "POST /api/mcp/discover",
             "POST /api/mcp/tool-call",
+            "GET /api/evidence-packs/{tenant_id}/{case_id}",
             "GET /api/finops/dashboard",
             "GET /api/finops/kpi/cost-per-compliant-outcome",
             "POST /api/hitl/slack/approval-task",
@@ -880,6 +918,9 @@ def register_agent_lifecycle(payload: AgentLifecycleRegisterRequest, auth: AuthR
         data_classes=tuple(payload.data_classes),
         status=payload.status,
         model_provider=payload.model_provider,
+        purpose=payload.purpose,
+        passport_expires_at=payload.passport_expires_at,
+        eval_baseline_id=payload.eval_baseline_id,
     )
     return {
         "status": "registered",
@@ -903,6 +944,19 @@ def update_agent_lifecycle_status(
         "updated_by": auth.principal_id,
         "agent": agent_registry_service.to_payload(agent),
         "lifecycle": agent_registry_service.lifecycle(),
+    }
+
+
+@app.post("/api/execution-tokens/revoke")
+def revoke_execution_token(payload: ExecutionTokenRevokeRequest, auth: AuthRequired) -> dict[str, object]:
+    target = (payload.token or payload.jti or "").strip()
+    if not target:
+        raise HTTPException(status_code=400, detail="Provide token or jti")
+    result = execution_token_service.revoke(target)
+    return {
+        "product_module": "Execution Tokens",
+        "revoked_by": auth.principal_id,
+        **result,
     }
 
 
@@ -1143,6 +1197,37 @@ def export_signed_audit_packet_json(tenant_id: str, case_id: str) -> Response:
         media_type="application/json",
         headers={
             "Content-Disposition": f'attachment; filename="{case_id}-audit-packet.signed.json"'
+        },
+    )
+
+
+@app.get("/api/evidence-packs/{tenant_id}/{case_id}")
+def export_incident_evidence_pack(
+    tenant_id: str,
+    case_id: str,
+    agent_id: str | None = None,
+    tool_name: str | None = None,
+    gateway_decision: str | None = None,
+    policy_version: str | None = None,
+    actor_id: str | None = None,
+) -> Response:
+    """Panel-falsifiable incident evidence pack (passport + policy + signed audit)."""
+    snapshot = control_plane_store.case_audit_snapshot(tenant_id, case_id)
+    pack = incident_evidence_pack_builder.build(
+        tenant_id=tenant_id,
+        case_id=case_id,
+        case_snapshot=snapshot,
+        actor_id=actor_id,
+        gateway_decision=gateway_decision,
+        tool_name=tool_name,
+        policy_version=policy_version,
+        agent_id=agent_id,
+    )
+    return Response(
+        content=audit_packet_exporter.json_bytes(pack),
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="{case_id}-incident-evidence-pack.json"'
         },
     )
 
@@ -1444,6 +1529,24 @@ def delete_http_connector(connector_id: str, auth: AuthRequired) -> dict[str, ob
 @app.get("/api/mcp/posture")
 def mcp_posture() -> dict[str, object]:
     return mcp_governance_proxy.posture()
+
+
+@app.post("/api/mcp/discover")
+def mcp_discover(payload: McpDiscoverPayload, auth: AuthRequired) -> dict[str, object]:
+    manifests = [
+        McpToolManifest(
+            name=item.name,
+            description=item.description,
+            input_schema=item.input_schema,
+            owner=item.owner,
+            risk_class=item.risk_class,
+            manifest_sha256=item.manifest_sha256,
+            mcp_server=item.mcp_server,
+        )
+        for item in payload.tools
+    ]
+    result = mcp_governance_proxy.discover(manifests)
+    return {**result, "scanned_by": auth.principal_id}
 
 
 @app.post("/api/mcp/tool-call")

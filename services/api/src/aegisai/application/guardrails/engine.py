@@ -1,5 +1,5 @@
+from aegisai.domain import ActionProposal, Decision, GovernanceDecision
 from .evaluation import EvaluationGate
-from aegisai.domain import ActionProposal, GovernanceDecision
 from .opa_policy import OpaPolicyEngine
 from .policy import PolicyEngine, build_policy_engine
 from .risk import RiskScorer
@@ -19,6 +19,29 @@ class DecisionEngine:
     def decide(self, proposal: ActionProposal) -> GovernanceDecision:
         evaluation = self.evaluation_gate.evaluate(proposal)
         risk = self.risk_scorer.score(proposal)
+
+        # Under PRODUCTION_STRICT, irreversible/customer-impact/high-risk actions require
+        # a live OPA plane — never silent builtin allow when OPA is down.
+        if OpaPolicyEngine.requires_hard_block_when_unavailable(
+            reversible=proposal.reversible,
+            customer_impact=proposal.customer_impact,
+            risk=risk,
+        ):
+            opa = (
+                self.policy_engine
+                if isinstance(self.policy_engine, OpaPolicyEngine)
+                else OpaPolicyEngine()
+            )
+            if not opa.policy_path.exists() or not OpaPolicyEngine.available():
+                return GovernanceDecision(
+                    proposal_id=proposal.proposal_id,
+                    decision=Decision.BLOCK,
+                    risk=risk,
+                    evaluation=evaluation,
+                    approval_role=None,
+                    policy_version=OpaPolicyEngine.POLICY_UNAVAILABLE_VERSION,
+                )
+
         if isinstance(self.policy_engine, OpaPolicyEngine):
             decision, approval_role = self.policy_engine.decide(
                 risk,
@@ -28,8 +51,14 @@ class DecisionEngine:
                 reversible=proposal.reversible,
                 customer_impact=proposal.customer_impact,
             )
+            policy_version = getattr(
+                self.policy_engine,
+                "last_policy_version",
+                self.policy_engine.version,
+            )
         else:
             decision, approval_role = self.policy_engine.decide(risk, evaluation)
+            policy_version = self.policy_engine.version
 
         return GovernanceDecision(
             proposal_id=proposal.proposal_id,
@@ -37,5 +66,5 @@ class DecisionEngine:
             risk=risk,
             evaluation=evaluation,
             approval_role=approval_role,
-            policy_version=self.policy_engine.version,
+            policy_version=policy_version,
         )

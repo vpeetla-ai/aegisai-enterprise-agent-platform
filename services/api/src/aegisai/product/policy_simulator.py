@@ -47,6 +47,14 @@ class PolicySimulatorService:
             },
         )
         decision = self.decision_engine.decide(proposal)
+        reason_codes = list(decision.risk.reason_codes)
+        explanation = self._explain(decision.approval_role, decision.decision.value)
+        if decision.policy_version == "policy_unavailable":
+            reason_codes = ["policy_unavailable", *reason_codes]
+            explanation = (
+                "PRODUCTION_STRICT deny: policy plane unavailable "
+                "(OPA binary or policy pack missing/errored) for irreversible or elevated-risk tools."
+            )
         return {
             "simulation_id": proposal.proposal_id,
             "decision": decision.decision.value,
@@ -54,10 +62,15 @@ class PolicySimulatorService:
             "risk_level": decision.risk.level.value,
             "approval_role": decision.approval_role,
             "policy_version": decision.policy_version,
+            "policy_plane": (
+                "unavailable"
+                if decision.policy_version == "policy_unavailable"
+                else "opa" if decision.policy_version.startswith("opa-") else "builtin"
+            ),
             "evaluation_passed": decision.evaluation.passed,
             "failed_checks": list(decision.evaluation.failed_checks),
-            "reason_codes": list(decision.risk.reason_codes),
-            "explanation": self._explain(decision.approval_role, decision.decision.value),
+            "reason_codes": reason_codes,
+            "explanation": explanation,
         }
 
     @staticmethod
