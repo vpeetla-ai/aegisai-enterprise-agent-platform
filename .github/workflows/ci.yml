@@ -49,6 +49,10 @@ jobs:
     needs: build
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: vpeetla-ai/golden-eval-registry
+          path: golden-eval-registry
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -57,7 +61,10 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install "mcp>=1.2.0,<2"
           python -m pip install -e ".[dev]"
+          python -m pip install -e ./golden-eval-registry
       - name: Backend tests
+        env:
+          GOLDEN_EVAL_REGISTRY_PATH: ${{ github.workspace }}/golden-eval-registry
         run: python -m pytest -q
 
   ci-ok:
