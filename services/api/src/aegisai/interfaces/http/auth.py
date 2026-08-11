@@ -10,8 +10,10 @@ from aegisai.interfaces.http.oidc_jwks import (
     oidc_jwks_enabled,
     principal_from_verified_claims,
     roles_from_verified_claims,
+    tenant_from_verified_claims,
     verify_oidc_access_token,
 )
+from aegisai.interfaces.http.saml_acs import resolve_saml_session
 
 
 @dataclass(frozen=True)
@@ -37,9 +39,20 @@ def _auth_mode() -> str:
 
 
 def resolve_auth_context(request: Request) -> AuthContext:
-    """Resolve identity from OIDC bearer token or development headers."""
+    """Resolve identity from OIDC bearer, SAML session, or development headers."""
     mode = _auth_mode()
     tenant_id = request.headers.get("X-AegisAI-Tenant", "bank-demo")
+
+    saml_token = request.headers.get("X-AegisAI-SAML-Session") or request.cookies.get("aegisai_saml_session")
+    saml_session = resolve_saml_session(saml_token)
+    if saml_session is not None and mode in {"saml", "oidc", "dev"}:
+        # Prefer verified SAML session tenant when present (Acme panel login).
+        return AuthContext(
+            principal_id=saml_session.principal_id,
+            tenant_id=saml_session.tenant_id,
+            roles=saml_session.roles,
+            auth_mode="saml",
+        )
 
     if mode == "oidc":
         authorization = request.headers.get("Authorization", "")
@@ -48,6 +61,7 @@ def resolve_auth_context(request: Request) -> AuthContext:
         token = authorization.removeprefix("Bearer ").strip()
         roles = _parse_roles(request.headers.get("X-AegisAI-Roles"))
         principal_id = request.headers.get("X-AegisAI-Principal")
+        claim_tenant: str | None = None
 
         if oidc_jwks_enabled():
             claims = verify_oidc_access_token(token)
@@ -56,14 +70,17 @@ def resolve_auth_context(request: Request) -> AuthContext:
             principal_id = principal_id or principal_from_verified_claims(claims)
             if not roles:
                 roles = roles_from_verified_claims(claims)
+            claim_tenant = tenant_from_verified_claims(claims)
         else:
             principal_id = principal_id or _principal_from_token(token)
 
         if not principal_id:
             raise HTTPException(status_code=401, detail="Unable to resolve principal from token.")
+        # JWT/OIDC tenant claim wins over spoofable header when present.
+        resolved_tenant = claim_tenant or tenant_id
         return AuthContext(
             principal_id=principal_id,
-            tenant_id=tenant_id,
+            tenant_id=resolved_tenant,
             roles=roles,
             auth_mode="oidc",
         )
@@ -133,12 +150,20 @@ def auth_posture() -> dict[str, object]:
         "enforce_auth": _enforce_auth_enabled(),
         "require_roles": _require_roles(),
         "oidc_ready": True,
+        "saml_acs": "/api/auth/saml/acs",
+        "scim": "/scim/v2/Users",
         "jwks_verification": oidc_jwks_enabled(),
         "enterprise_guidance": (
             "Set AEGISAI_AUTH_MODE=oidc, AEGISAI_ENFORCE_AUTH=true, AEGISAI_OIDC_ISSUER, "
-            "and optional AEGISAI_OIDC_AUDIENCE for Okta/Azure AD JWKS validation."
+            "and optional AEGISAI_OIDC_AUDIENCE for Okta/Azure AD JWKS validation. "
+            "SAML: POST /api/auth/saml/acs (Auth0/Okta) or AEGISAI_SAML_PANEL_MODE=true."
         ),
-        "dev_headers": ["X-AegisAI-Principal", "X-AegisAI-Tenant", "X-AegisAI-Roles"],
+        "dev_headers": [
+            "X-AegisAI-Principal",
+            "X-AegisAI-Tenant",
+            "X-AegisAI-Roles",
+            "X-AegisAI-SAML-Session",
+        ],
     }
 
 

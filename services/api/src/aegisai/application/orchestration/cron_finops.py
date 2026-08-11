@@ -33,9 +33,15 @@ def meter_llm_response(
     finops_client: FinOpsClient | None = None,
     agent_registry: AgentRegistryService | None = None,
     kill_switch_service: KillSwitchService | None = None,
+    tenant_id: str | None = None,
 ) -> bool:
-    """Record usage for one LLM completion. Return True if budget breached."""
+    """Record usage for one LLM completion. Return True if budget breached.
+
+    When tenant_id is set, also meters scope_type=tenant (ADR-026 / Acme embed)
+    and freezes only that tenant on breach.
+    """
     client = finops_client or default_finops_client()
+    breached = False
     try:
         result = client.record_usage(
             scope_type="agent",
@@ -45,9 +51,34 @@ def meter_llm_response(
             prompt_tokens=response.prompt_tokens,
             completion_tokens=response.completion_tokens,
         )
+        breached = bool(result.breached)
     except Exception as exc:
         logger.warning("cron_finops_record_failed agent=%s err=%s", agent_id, exc)
         return False
+
+    if tenant_id:
+        try:
+            tenant_result = client.record_usage(
+                scope_type="tenant",
+                scope_value=tenant_id,
+                provider=response.provider,
+                model=response.model,
+                prompt_tokens=response.prompt_tokens,
+                completion_tokens=response.completion_tokens,
+            )
+            if tenant_result.breached and kill_switch_service is not None:
+                kill_switch_service.activate(
+                    "tenant",
+                    tenant_id,
+                    reason=(
+                        f"AgentFinOps tenant budget ${tenant_result.budget_usd} exceeded "
+                        f"(total ${tenant_result.total_cost_usd})"
+                    ),
+                    created_by="agentfinops",
+                )
+                breached = True
+        except Exception as exc:
+            logger.warning("cron_finops_tenant_record_failed tenant=%s err=%s", tenant_id, exc)
 
     if agent_registry is not None:
         try:
@@ -66,7 +97,29 @@ def meter_llm_response(
             created_by="agentfinops",
         )
         return True
-    return bool(result.breached)
+    return breached
+
+
+def tenant_budget_preflight(
+    tenant_id: str,
+    *,
+    finops_client: FinOpsClient | None = None,
+) -> dict[str, object]:
+    """Caller-owned halt check before paid work (ADR-026)."""
+    client = finops_client or default_finops_client()
+    try:
+        status = client.get_budget_status("tenant", tenant_id)
+        return {
+            "tenant_id": tenant_id,
+            "budget_usd": status.budget_usd,
+            "total_cost_usd": status.total_cost_usd,
+            "breached": bool(status.breached),
+            "enforcement": "caller_owned",
+        }
+    except Exception as exc:
+        logger.warning("tenant_budget_preflight_failed tenant=%s err=%s", tenant_id, exc)
+        return {"tenant_id": tenant_id, "breached": False, "error": str(exc), "enforcement": "caller_owned"}
+
 
 
 def finops_trace_note(breached: bool) -> dict[str, Any]:

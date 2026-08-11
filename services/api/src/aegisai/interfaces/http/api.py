@@ -290,6 +290,25 @@ incident_evidence_pack_builder = IncidentEvidencePackBuilder(
     exporter=audit_packet_exporter,
     agent_registry=agent_registry_service,
 )
+from aegisai.infrastructure.notifications.delivery import NotificationDeliveryService
+from aegisai.product.tenant_ops import TenantOpsService
+from aegisai.product.webhook_engine import WebhookEngine
+
+notification_delivery_service = NotificationDeliveryService()
+tenant_ops_service = TenantOpsService()
+webhook_engine = WebhookEngine()
+
+
+def _slack_interaction_webhook_handler(delivery) -> None:
+    """Reuse Slack HITL path through the generic webhook engine."""
+    text = str((delivery.payload or {}).get("text") or "")
+    reviewer = str((delivery.payload or {}).get("reviewer_id") or "approver-7")
+    if os.getenv("SLACK_FORCE_FAIL", "").lower() in {"1", "true", "yes"}:
+        raise RuntimeError("slack_forced_500")
+    slack_approval_service.handle_interaction(text, reviewer)
+
+
+webhook_engine.register_handler("slack.interaction", _slack_interaction_webhook_handler)
 platform_control_plane_service = PlatformControlPlaneService(
     agent_registry=agent_registry_service,
     identity_service=identity_service,
@@ -371,6 +390,14 @@ app = FastAPI(
     version="0.1.0",
     description="FastAPI surface for LangGraph multi-agent orchestration, RAG, HITL, and audit.",
 )
+
+app.state.identity_service = identity_service
+
+from aegisai.interfaces.http.saml_acs import router as saml_router
+from aegisai.interfaces.http.scim import router as scim_router
+
+app.include_router(saml_router)
+app.include_router(scim_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -1606,6 +1633,180 @@ def slack_interaction(
 @app.get("/api/hitl/slack/posture")
 def slack_posture() -> dict[str, object]:
     return slack_approval_service.posture()
+
+
+class WebhookIngestRequest(BaseModel):
+    webhook_id: str = Field(default="slack.interaction")
+    tenant_id: str = Field(default="acme")
+    payload: dict[str, object] = Field(default_factory=dict)
+    idempotency_key: str | None = None
+    force_fail: bool = False
+
+
+@app.post("/api/webhooks/ingest")
+async def webhook_ingest(request: Request) -> dict[str, object]:
+    """HMAC-verified inbound webhook ingress (Acme embed / panel drills)."""
+    raw = await request.body()
+    signature = request.headers.get("X-AegisAI-Signature") or request.headers.get("X-Hub-Signature-256")
+    import json
+
+    try:
+        body = json.loads(raw.decode("utf-8") or "{}")
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Invalid JSON body") from exc
+    delivery = webhook_engine.ingest(
+        webhook_id=str(body.get("webhook_id") or "slack.interaction"),
+        tenant_id=str(body.get("tenant_id") or "acme"),
+        payload=dict(body.get("payload") or {}),
+        raw_body=raw,
+        signature_header=signature,
+        idempotency_key=body.get("idempotency_key"),
+        force_fail=bool(body.get("force_fail")),
+    )
+    if delivery.status == "rejected":
+        raise HTTPException(status_code=401, detail="invalid_hmac_signature")
+    return webhook_engine.to_payload(delivery)
+
+
+@app.get("/api/webhooks/dlq")
+def webhook_dlq(tenant_id: str | None = None) -> dict[str, object]:
+    return {"dlq": webhook_engine.list_dlq(tenant_id), "posture": webhook_engine.posture()}
+
+
+@app.post("/api/webhooks/{delivery_id}/replay")
+def webhook_replay(delivery_id: str, auth: AuthRequired) -> dict[str, object]:
+    try:
+        delivery = webhook_engine.replay(delivery_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="delivery_not_found") from exc
+    return webhook_engine.to_payload(delivery)
+
+
+@app.get("/api/webhooks/posture")
+def webhook_posture() -> dict[str, object]:
+    return webhook_engine.posture()
+
+
+@app.get("/api/notifications/slack/dlq")
+def slack_delivery_dlq() -> dict[str, object]:
+    return {"dlq": notification_delivery_service.list_dlq()}
+
+
+@app.post("/api/notifications/slack/dlq/replay")
+def slack_delivery_replay(auth: AuthRequired, index: int = 0) -> dict[str, object]:
+    try:
+        result = notification_delivery_service.replay_dlq(index)
+    except (IndexError, RuntimeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "channel": result.channel,
+        "delivered": result.delivered,
+        "detail": result.detail,
+        "attempts": result.attempts,
+        "dead_lettered": result.dead_lettered,
+    }
+
+
+@app.get("/api/compliance/log")
+def compliance_log(limit: int = 50) -> dict[str, object]:
+    from aegisai.product.pii_middleware import compliance_log_tail
+
+    return {"events": compliance_log_tail(limit), "attestation": "pattern_only_not_soc2"}
+
+
+@app.post("/api/pii/redact")
+def pii_redact(payload: dict[str, object], auth: AuthRequired) -> dict[str, object]:
+    from aegisai.product.pii_middleware import log_compliance_event, redact_pii, redact_tool_args
+
+    text = str(payload.get("text") or "")
+    tool_args = payload.get("tool_args")
+    tenant_id = str(payload.get("tenant_id") or auth.tenant_id)
+    if isinstance(tool_args, dict):
+        redacted_args, flags = redact_tool_args(tool_args)
+        log_compliance_event(
+            purpose="tool_args_redaction",
+            tenant_id=tenant_id,
+            action="redact",
+            flags=flags,
+        )
+        return {"tool_args": redacted_args, "flags": list(flags)}
+    result = redact_pii(text)
+    log_compliance_event(
+        purpose="text_redaction",
+        tenant_id=tenant_id,
+        action="redact",
+        flags=result.flags,
+    )
+    return {"text": result.text, "flags": list(result.flags)}
+
+
+@app.get("/api/tenants/{tenant_id}/health")
+def tenant_health(tenant_id: str) -> dict[str, object]:
+    return tenant_ops_service.health_payload(tenant_id)
+
+
+@app.get("/api/tenants/{tenant_id}/onboarding")
+def tenant_onboarding(tenant_id: str) -> dict[str, object]:
+    return tenant_ops_service.onboarding_payload(tenant_id)
+
+
+@app.post("/api/tenants/{tenant_id}/onboarding/start")
+def tenant_onboarding_start(tenant_id: str, auth: AuthRequired) -> dict[str, object]:
+    tenant_ops_service.start_tenant(tenant_id)
+    return tenant_ops_service.onboarding_payload(tenant_id)
+
+
+class OnboardingStepRequest(BaseModel):
+    step: str
+
+
+@app.post("/api/tenants/{tenant_id}/onboarding/complete-step")
+def tenant_onboarding_complete(
+    tenant_id: str, payload: OnboardingStepRequest, auth: AuthRequired
+) -> dict[str, object]:
+    try:
+        return tenant_ops_service.complete_step(tenant_id, payload.step)
+    except KeyError as exc:
+        raise HTTPException(status_code=400, detail=f"unknown_step:{payload.step}") from exc
+
+
+class TenantMetricsRequest(BaseModel):
+    missions_week: float | None = None
+    error_rate_pct: float | None = None
+    hitl_reject_rate_pct: float | None = None
+    budget_burn_pct: float | None = None
+    warm_sla_breaches: float | None = None
+
+
+@app.post("/api/tenants/{tenant_id}/metrics")
+def tenant_metrics_update(
+    tenant_id: str, payload: TenantMetricsRequest, auth: AuthRequired
+) -> dict[str, object]:
+    kwargs = {k: v for k, v in payload.model_dump().items() if v is not None}
+    tenant_ops_service.record_metric(tenant_id, **kwargs)
+    return tenant_ops_service.health_payload(tenant_id)
+
+
+@app.get("/api/tenants/{tenant_id}/budget/preflight")
+def tenant_budget_check(tenant_id: str) -> dict[str, object]:
+    from aegisai.application.orchestration.cron_finops import tenant_budget_preflight
+
+    return tenant_budget_preflight(tenant_id)
+
+
+@app.get("/api/incidents/{tenant_id}/{case_id}/playbook")
+def incident_playbook(tenant_id: str, case_id: str) -> dict[str, object]:
+    from aegisai.product.incident_playbooks import incident_playbook_bundle
+
+    evidence = incident_evidence_pack_builder.build(
+        tenant_id=tenant_id,
+        case_id=case_id,
+        case_snapshot={"case_id": case_id, "tenant_id": tenant_id, "drill": True},
+        actor_id="ir-drill",
+        gateway_decision="deny",
+        tool_name="notify.slack",
+    )
+    return incident_playbook_bundle(tenant_id=tenant_id, case_id=case_id, evidence_pack=evidence)
 
 
 @app.get("/api/v1/ops/metrics")

@@ -19,9 +19,9 @@ class AuthorizationResult:
 
 
 class IdentityRBACService:
-    """Mock enterprise identity/RBAC service for reviewer and tool permissions."""
+    """Enterprise identity/RBAC — seed principals + SCIM-mutable store (Acme embed)."""
 
-    _PRINCIPALS = {
+    _SEED_PRINCIPALS = {
         "approver-7": Principal(
             principal_id="approver-7",
             tenant_id="bank-demo",
@@ -120,10 +120,80 @@ class IdentityRBACService:
                 "payments.issue_refund",
             ),
         ),
+        "acme-support-agent": Principal(
+            principal_id="acme-support-agent",
+            tenant_id="acme",
+            roles=("workflow_owner", "execution_broker"),
+            allowed_tools=(
+                "rag.search_policy_memory",
+                "notify.slack",
+                "crm.create_case",
+                "crm.update_case",
+            ),
+        ),
     }
 
+    def __init__(self) -> None:
+        self._principals: dict[str, Principal] = dict(self._SEED_PRINCIPALS)
+        self._deactivated: set[str] = set()
+        self._groups: dict[str, dict[str, object]] = {}
+
     def principal(self, principal_id: str) -> Principal | None:
-        return self._PRINCIPALS.get(principal_id)
+        if principal_id in self._deactivated:
+            return None
+        return self._principals.get(principal_id)
+
+    def list_principals(self) -> tuple[Principal, ...]:
+        return tuple(p for pid, p in self._principals.items() if pid not in self._deactivated)
+
+    def upsert_principal(self, principal: Principal) -> Principal:
+        self._deactivated.discard(principal.principal_id)
+        self._principals[principal.principal_id] = principal
+        return principal
+
+    def deactivate_principal(self, principal_id: str) -> bool:
+        if principal_id not in self._principals and principal_id not in self._deactivated:
+            return False
+        self._deactivated.add(principal_id)
+        return True
+
+    def upsert_group(
+        self,
+        *,
+        group_id: str,
+        display_name: str,
+        members: list[dict[str, str]] | None = None,
+        roles: list[str] | None = None,
+    ) -> dict[str, object]:
+        group = {
+            "id": group_id,
+            "displayName": display_name,
+            "members": list(members or []),
+            "roles": list(roles or []),
+        }
+        self._groups[group_id] = group
+        # Map group roles onto member principals when present.
+        for member in group["members"]:
+            value = member.get("value") if isinstance(member, dict) else None
+            if not value:
+                continue
+            existing = self._principals.get(value)
+            if existing is None:
+                continue
+            merged_roles = tuple(dict.fromkeys(existing.roles + tuple(roles or [])))
+            self._principals[value] = Principal(
+                principal_id=existing.principal_id,
+                tenant_id=existing.tenant_id,
+                roles=merged_roles,
+                allowed_tools=existing.allowed_tools,
+            )
+        return group
+
+    def list_groups(self) -> list[dict[str, object]]:
+        return list(self._groups.values())
+
+    def delete_group(self, group_id: str) -> bool:
+        return self._groups.pop(group_id, None) is not None
 
     def authorize_reviewer(
         self,
@@ -162,12 +232,14 @@ class IdentityRBACService:
         return AuthorizationResult(True, "Execution identity is authorized for this tool.", tool_name)
 
     def posture(self) -> dict[str, object]:
-        principals = tuple(self._PRINCIPALS.values())
+        principals = self.list_principals()
         return {
             "product_module": "Identity",
             "principal_count": len(principals),
             "tenant_count": len({principal.tenant_id for principal in principals}),
+            "group_count": len(self._groups),
             "tool_grants": sum(len(principal.allowed_tools) for principal in principals),
+            "scim_ready": True,
             "principals": [
                 {
                     "principal_id": principal.principal_id,
@@ -181,7 +253,7 @@ class IdentityRBACService:
 
     def graph(self, agents: tuple[object, ...]) -> dict[str, object]:
         """Return the enterprise blast-radius graph for agents, tools, owners, and identities."""
-        principals = tuple(self._PRINCIPALS.values())
+        principals = self.list_principals()
         nodes: list[dict[str, object]] = [
             {
                 "id": "tenant:bank-demo",

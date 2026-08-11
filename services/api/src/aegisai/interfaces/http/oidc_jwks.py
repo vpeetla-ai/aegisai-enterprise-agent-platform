@@ -67,3 +67,12 @@ def roles_from_verified_claims(claims: dict[str, Any]) -> tuple[str, ...]:
     if isinstance(groups, list):
         return tuple(str(item) for item in groups if item)
     return ()
+
+
+def tenant_from_verified_claims(claims: dict[str, Any]) -> str | None:
+    """Prefer IdP tenant claim over spoofable X-AegisAI-Tenant header."""
+    for key in ("tenant_id", "tid", "org_id", "https://aegisai.ai/tenant_id"):
+        value = claims.get(key)
+        if value:
+            return str(value)
+    return None

@@ -24,6 +24,7 @@ const MODULES: DashboardModule[] = [
   "incidents",
   "orchestrators",
   "onboard",
+  "tenant-health",
 ];
 
 function parseDeepLink(): { view?: WorkbenchView; module?: DashboardModule } {
