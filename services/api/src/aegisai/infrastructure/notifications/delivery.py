@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 
@@ -13,10 +16,25 @@ class DeliveryResult:
     channel: str
     delivered: bool
     detail: str
+    attempts: int = 1
+    dead_lettered: bool = False
+
+
+@dataclass
+class DeadLetterEntry:
+    channel: str
+    text: str
+    detail: str
+    attempts: int
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 class NotificationDeliveryService:
-    """Posts pipeline outputs to Slack and/or Telegram."""
+    """Posts pipeline outputs to Slack and/or Telegram with retry + DLQ."""
+
+    def __init__(self, *, max_attempts: int = 3) -> None:
+        self.max_attempts = max_attempts
+        self._dlq: list[DeadLetterEntry] = []
 
     def deliver_markdown(
         self,
@@ -36,15 +54,67 @@ class NotificationDeliveryService:
             results.append(telegram)
         return results
 
-    @staticmethod
-    def _post_slack(webhook_url: str, text: str) -> DeliveryResult:
-        try:
-            with httpx.Client(timeout=15) as client:
-                response = client.post(webhook_url, json={"text": text})
-                response.raise_for_status()
-            return DeliveryResult(channel="slack", delivered=True, detail="Webhook accepted")
-        except httpx.HTTPError as exc:
-            return DeliveryResult(channel="slack", delivered=False, detail=str(exc))
+    def list_dlq(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "channel": e.channel,
+                "detail": e.detail,
+                "attempts": e.attempts,
+                "created_at": e.created_at,
+                "text_preview": e.text[:120],
+            }
+            for e in self._dlq
+        ]
+
+    def replay_dlq(self, index: int = 0) -> DeliveryResult:
+        if index < 0 or index >= len(self._dlq):
+            raise IndexError("dlq_index_out_of_range")
+        entry = self._dlq.pop(index)
+        if entry.channel == "slack":
+            url = os.getenv("SLACK_APPROVAL_WEBHOOK_URL", "").strip()
+            if not url:
+                raise RuntimeError("SLACK_APPROVAL_WEBHOOK_URL unset for replay")
+            return self._post_slack(url, entry.text)
+        raise RuntimeError(f"unsupported_dlq_channel:{entry.channel}")
+
+    def _post_slack(self, webhook_url: str, text: str) -> DeliveryResult:
+        if os.getenv("SLACK_FORCE_FAIL", "").lower() in {"1", "true", "yes"}:
+            self._dlq.append(
+                DeadLetterEntry(
+                    channel="slack", text=text, detail="forced_500", attempts=self.max_attempts
+                )
+            )
+            return DeliveryResult(
+                channel="slack",
+                delivered=False,
+                detail="forced_500",
+                attempts=self.max_attempts,
+                dead_lettered=True,
+            )
+        last_error = "unknown"
+        for attempt in range(1, self.max_attempts + 1):
+            try:
+                with httpx.Client(timeout=15) as client:
+                    response = client.post(webhook_url, json={"text": text})
+                    response.raise_for_status()
+                return DeliveryResult(
+                    channel="slack", delivered=True, detail="Webhook accepted", attempts=attempt
+                )
+            except httpx.HTTPError as exc:
+                last_error = str(exc)
+                time.sleep(0)
+        self._dlq.append(
+            DeadLetterEntry(
+                channel="slack", text=text, detail=last_error, attempts=self.max_attempts
+            )
+        )
+        return DeliveryResult(
+            channel="slack",
+            delivered=False,
+            detail=last_error,
+            attempts=self.max_attempts,
+            dead_lettered=True,
+        )
 
     @staticmethod
     def _post_telegram(text: str, parse_mode: str = "Markdown") -> DeliveryResult | None:

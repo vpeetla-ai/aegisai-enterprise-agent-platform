@@ -32,7 +32,8 @@ export type DashboardModule =
   | "finops"
   | "incidents"
   | "orchestrators"
-  | "onboard";
+  | "onboard"
+  | "tenant-health";
 
 const TILE_META: Record<
   string,

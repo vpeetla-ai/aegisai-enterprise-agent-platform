@@ -15,6 +15,7 @@ import { WebsiteBuildPanel } from "@/components/control-plane/WebsiteBuildPanel"
 import { AgentOnboardingWizard } from "@/components/control-plane/AgentOnboardingWizard";
 import { LlmPlanePanel } from "@/components/control-plane/LlmPlanePanel";
 import { HitlQueuePanel } from "@/components/control-plane/HitlQueuePanel";
+import { TenantHealthPanel } from "@/components/control-plane/TenantHealthPanel";
 import type {
   AgentCloudGovernPayload,
   AgentCloudMonitorPayload,
@@ -41,7 +42,8 @@ const MODULE_TITLES: Record<DashboardModule, string> = {
   finops: "FinOps",
   incidents: "Incidents",
   orchestrators: "Orchestrators",
-  onboard: "Onboard"
+  onboard: "Onboard",
+  "tenant-health": "Tenant health"
 };
 
 type GovernanceModuleViewProps = {
@@ -268,6 +270,10 @@ export function GovernanceModuleView(props: GovernanceModuleViewProps) {
         />
       </ModuleShell>
     );
+  }
+
+  if (activeModule === "tenant-health") {
+    return <TenantHealthPanel onBack={onBack} />;
   }
 
   return null;

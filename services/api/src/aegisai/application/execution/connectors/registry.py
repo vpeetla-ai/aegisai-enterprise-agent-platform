@@ -7,6 +7,7 @@ from uuid import uuid4
 from aegisai.domain import ExecutionCommand
 
 from .stripe_refund import StripeRefundConnector, StripeRefundRequest
+from .salesforce_case import SalesforceCaseConnector
 
 
 @dataclass(frozen=True)
@@ -169,12 +170,7 @@ class ConnectorRegistry:
 def default_connector_registry() -> tuple[EnterpriseConnector, ...]:
     return (
         StripePaymentsConnector(),
-        GenericEnterpriseConnector(
-            connector_id="crm_case_connector",
-            provider="salesforce",
-            target_systems=("crm", "salesforce"),
-            tool_names=("crm.update_case",),
-        ),
+        SalesforceCaseConnector(),
         GenericEnterpriseConnector(
             connector_id="privacy_data_ops_connector",
             provider="enterprise_data_platform",
