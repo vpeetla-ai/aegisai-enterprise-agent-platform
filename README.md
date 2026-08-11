@@ -67,7 +67,8 @@ AegisAI is the **governance control plane** for that scar:
 | Agent passport + token revoke | ✅ Registry purpose / expiry / eval baseline; TTL execution tokens with `jti`; `POST /api/execution-tokens/revoke` |
 | MCP discovery trust gate | ✅ `POST /api/mcp/discover` scans manifests before tools reach the model ([ADR-0008](adr/0008-mcp-discovery-metadata-gate.md)) |
 | Incident evidence pack | ✅ `GET /api/evidence-packs/{tenant}/{case}` + sample [`docs/samples/incident-evidence-pack.json`](docs/samples/incident-evidence-pack.json) |
-| Golden eval CI gate | ✅ `aegisai.gateway_invariant_v1` via `golden-eval-registry` (CI checkout) |
+| Golden eval CI gate | ✅ `aegisai.gateway_invariant_v1` + `acme.embed_invariant_v1` via `golden-eval-registry` |
+| Acme embed harness | ✅ `scripts/run_acme_embed_harness.py --score` · panel break tests (ADR-032) |
 | Strict panel pack | ✅ [`docs/STRICT_PANEL_PACK.md`](docs/STRICT_PANEL_PACK.md) · `./scripts/run_strict_local.sh` · `./scripts/probe_strict_panel.sh` |
 | VAP notify gateway | ✅ Wired (`aegis_gateway.py`) |
 | ai-content-factory publish | ✅ Wired — ACF calls `POST /api/gateway/tool-request` for `publish.{platform}` via `aegis_gateway.py` (fail-closed under `PRODUCTION_STRICT`) |
