@@ -2288,7 +2288,7 @@
 
 .gb-workbench {
   display: grid;
-  grid-template-columns: minmax(260px, 300px) minmax(0, 1fr) minmax(280px, 340px);
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr) minmax(0, 340px);
   gap: 1rem;
   align-items: start;
 }
@@ -2296,6 +2296,7 @@
 .gb-rail,
 .gb-center,
 .gb-product {
+  min-width: 0;
   background: var(--aegis-surface);
   border: 1px solid var(--aegis-border);
   border-radius: 14px;
@@ -2303,18 +2304,119 @@
 }
 
 .gb-rail {
-  padding: 0.5rem;
-  max-height: calc(100vh - 140px);
-  overflow: auto;
-  position: sticky;
-  top: 0.75rem;
+  padding: 0.65rem 0.7rem 0.85rem;
+  /* Page scroll owns the rail — sticky+inner-scroll clipped wide architect cards into the center column. */
+  position: static;
+  max-height: none;
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 .gb-rail .aegis-architect-shell {
   margin: 0;
-  padding: 0.5rem;
+  padding: 0;
   border: none;
   box-shadow: none;
+}
+
+/* Compact ArchitectOverview for the narrow glass-box rail */
+.gb-rail .aegis-architect {
+  gap: 0.75rem;
+}
+
+.gb-rail .aegis-architect-hero {
+  padding: 0.85rem 0.95rem;
+}
+
+.gb-rail .aegis-architect-hero h2 {
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+.gb-rail .aegis-architect-hero > p,
+.gb-rail .aegis-architect-hero-note {
+  font-size: 0.78rem;
+  line-height: 1.4;
+  max-width: none;
+}
+
+.gb-rail .aegis-architect-planes,
+.gb-rail .aegis-architect-tradeoff-grid {
+  grid-template-columns: 1fr;
+}
+
+.gb-rail .aegis-architect-plane {
+  padding: 0.7rem 0.8rem;
+  gap: 0.55rem;
+}
+
+.gb-rail .aegis-architect-plane strong {
+  font-size: 0.8rem;
+}
+
+.gb-rail .aegis-architect-plane span {
+  font-size: 0.74rem;
+}
+
+.gb-rail .aegis-architect-section {
+  padding: 0.75rem 0.8rem;
+  gap: 0.55rem;
+}
+
+.gb-rail .aegis-architect-section-head {
+  margin-bottom: 0.55rem;
+  gap: 0.45rem;
+}
+
+.gb-rail .aegis-architect-section-head h3 {
+  font-size: 0.78rem;
+}
+
+.gb-rail .aegis-metric-tile-grid {
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.gb-rail .aegis-architect-layer {
+  grid-template-columns: auto 1fr;
+  padding: 0.55rem 0.65rem;
+  gap: 0.45rem 0.55rem;
+}
+
+.gb-rail .aegis-architect-layer-copy {
+  grid-column: 2;
+}
+
+.gb-rail .aegis-architect-chips {
+  grid-column: 1 / -1;
+  gap: 0.3rem;
+}
+
+.gb-rail .aegis-architect-chips li {
+  font-size: 0.68rem;
+  padding: 0.15rem 0.4rem;
+  white-space: normal;
+}
+
+.gb-rail .aegis-architect-tradeoff {
+  padding: 0.65rem 0.75rem;
+}
+
+.gb-rail .aegis-architect-tradeoff h4 {
+  font-size: 0.78rem;
+}
+
+.gb-rail .aegis-architect-tradeoff p {
+  font-size: 0.72rem;
+}
+
+.gb-rail .aegis-architect-links {
+  gap: 0.35rem;
+}
+
+.gb-rail .aegis-architect-links a {
+  font-size: 0.72rem;
+  padding: 0.35rem 0.5rem;
 }
 
 .gb-center,
@@ -2562,8 +2664,6 @@
   }
 
   .gb-rail {
-    position: static;
-    max-height: none;
     order: 3;
   }
 
