@@ -530,6 +530,7 @@ def root() -> dict[str, object]:
             "GET /api/llm-plane/gateway-metrics",
             "GET /api/llm-plane/cache-metrics",
             "GET /api/llm-plane/routing-decisions",
+            "POST /api/llm-plane/deny-probes",
             "GET /api/platform/posture",
             "GET /api/platform/gateway-story",
             "GET /api/platform/developer-quickstart",
@@ -1865,6 +1866,14 @@ def llm_plane_cache_metrics() -> dict[str, object]:
     from aegisai.product.llm_plane_ops import cache_ops_payload
 
     return cache_ops_payload()
+
+
+@app.post("/api/llm-plane/deny-probes")
+def llm_plane_deny_probes() -> dict[str, object]:
+    """One-click model-plane deny theater (confidential / verifier / thin geo)."""
+    from aegisai.product.llm_plane_ops import deny_probes_payload
+
+    return deny_probes_payload()  # type: ignore[return-value]
 
 
 @app.get("/api/control-plane/metrics")

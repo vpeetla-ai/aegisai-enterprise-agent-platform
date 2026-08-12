@@ -67,7 +67,12 @@ AegisAI is the **governance control plane** for that scar:
 | Agent passport + token revoke | ✅ Registry purpose / expiry / eval baseline; TTL execution tokens with `jti`; `POST /api/execution-tokens/revoke` |
 | MCP discovery trust gate | ✅ `POST /api/mcp/discover` scans manifests before tools reach the model ([ADR-0008](adr/0008-mcp-discovery-metadata-gate.md)) |
 | Incident evidence pack | ✅ `GET /api/evidence-packs/{tenant}/{case}` + sample [`docs/samples/incident-evidence-pack.json`](docs/samples/incident-evidence-pack.json) |
-| Golden eval CI gate | ✅ `aegisai.gateway_invariant_v1` via `golden-eval-registry` (CI checkout) |
+| Acme embed — SSO / SCIM | ✅ OIDC JWKS + SAML ACS (`/api/auth/saml/acs`) + SCIM 2.0 Users/Groups (`/scim/v2`) · [operator wiring](https://github.com/vpeetla-ai/ai-architecture-portfolio/blob/main/docs/ACME_EMBED_OPERATOR_WIRING.md) |
+| Acme embed — webhooks + connectors | ✅ HMAC ingress + DLQ/replay; Slack retry/DLQ; Salesforce Case connector; HubSpot/GWS [adapter contract only](docs/ADAPTER_CONTRACT_HUBSPOT_GWS.md) |
+| Acme embed — tenant health / TTFV / IR | ✅ `GET /api/tenants/{id}/health` · Control Room `tenant-health` · onboarding `ttfv_seconds` · incident playbooks |
+| Golden eval CI gate | ✅ `aegisai.gateway_invariant_v1` + `acme.embed_invariant_v1` via `golden-eval-registry` |
+| Acme embed harness | ✅ `scripts/run_acme_embed_harness.py --score` · `./scripts/probe_acme_embed_panel.sh` · `./scripts/embed_acme_up.sh` (**env templates** — live IdP/Slack/SFDC = [operator wiring](https://github.com/vpeetla-ai/ai-architecture-portfolio/blob/main/docs/ACME_EMBED_OPERATOR_WIRING.md)) |
+| Model-plane deny theater | ✅ Control Room LLM metrics → **Run deny probes** (`confidential→private`, verifier≠generator, thin geo `acme-eu`) · [ADR-029](https://github.com/vpeetla-ai/ai-architecture-portfolio/blob/main/adr/ADR-029-app-owned-role-aware-routing-contract.md) · [ADR-033](https://github.com/vpeetla-ai/ai-architecture-portfolio/blob/main/adr/ADR-033-thin-geo-routing-enforce.md) |
 | Strict panel pack | ✅ [`docs/STRICT_PANEL_PACK.md`](docs/STRICT_PANEL_PACK.md) · `./scripts/run_strict_local.sh` · `./scripts/probe_strict_panel.sh` |
 | VAP notify gateway | ✅ Wired (`aegis_gateway.py`) |
 | ai-content-factory publish | ✅ Wired — ACF calls `POST /api/gateway/tool-request` for `publish.{platform}` via `aegis_gateway.py` (fail-closed under `PRODUCTION_STRICT`) |
