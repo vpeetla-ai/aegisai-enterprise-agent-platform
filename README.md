@@ -67,8 +67,11 @@ AegisAI is the **governance control plane** for that scar:
 | Agent passport + token revoke | ✅ Registry purpose / expiry / eval baseline; TTL execution tokens with `jti`; `POST /api/execution-tokens/revoke` |
 | MCP discovery trust gate | ✅ `POST /api/mcp/discover` scans manifests before tools reach the model ([ADR-0008](adr/0008-mcp-discovery-metadata-gate.md)) |
 | Incident evidence pack | ✅ `GET /api/evidence-packs/{tenant}/{case}` + sample [`docs/samples/incident-evidence-pack.json`](docs/samples/incident-evidence-pack.json) |
+| Acme embed — SSO / SCIM | ✅ OIDC JWKS + SAML ACS (`/api/auth/saml/acs`) + SCIM 2.0 Users/Groups (`/scim/v2`) · [operator wiring](https://github.com/vpeetla-ai/ai-architecture-portfolio/blob/main/docs/ACME_EMBED_OPERATOR_WIRING.md) |
+| Acme embed — webhooks + connectors | ✅ HMAC ingress + DLQ/replay; Slack retry/DLQ; Salesforce Case connector; HubSpot/GWS [adapter contract only](docs/ADAPTER_CONTRACT_HUBSPOT_GWS.md) |
+| Acme embed — tenant health / TTFV / IR | ✅ `GET /api/tenants/{id}/health` · Control Room `tenant-health` · onboarding `ttfv_seconds` · incident playbooks |
 | Golden eval CI gate | ✅ `aegisai.gateway_invariant_v1` + `acme.embed_invariant_v1` via `golden-eval-registry` |
-| Acme embed harness | ✅ `scripts/run_acme_embed_harness.py --score` · panel break tests (ADR-032) |
+| Acme embed harness | ✅ `scripts/run_acme_embed_harness.py --score` · panel break tests ([ADR-032](https://github.com/vpeetla-ai/ai-architecture-portfolio/blob/main/adr/ADR-032-acme-support-agent-embed.md)) · `./scripts/embed_acme_up.sh` |
 | Strict panel pack | ✅ [`docs/STRICT_PANEL_PACK.md`](docs/STRICT_PANEL_PACK.md) · `./scripts/run_strict_local.sh` · `./scripts/probe_strict_panel.sh` |
 | VAP notify gateway | ✅ Wired (`aegis_gateway.py`) |
 | ai-content-factory publish | ✅ Wired — ACF calls `POST /api/gateway/tool-request` for `publish.{platform}` via `aegis_gateway.py` (fail-closed under `PRODUCTION_STRICT`) |
@@ -86,8 +89,9 @@ AegisAI is the **governance control plane** for that scar:
 ## 60-second overview
 
 ```text
-Agent fleet → AI Gateway (policy + HITL) → Connectors (GitHub, Vercel, Render, Stripe…)
-           ↘ Control plane UI (dashboard, monitor, governance, LLM Plane, onboard)
+Agent fleet → AI Gateway (policy + HITL) → Connectors (GitHub, Vercel, Render, Stripe, Slack, Salesforce…)
+           ↘ Control plane UI (dashboard, monitor, governance, LLM Plane, onboard, tenant-health)
+           ↘ Acme embed: SAML/SCIM · webhooks+DLQ · FinOps tenant freeze · IR playbooks
 Apps → aegis-llm-gateway (+ semantic cache) → providers   # model plane — separate from tool gateway
 ```
 
