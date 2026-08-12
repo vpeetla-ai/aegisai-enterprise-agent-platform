@@ -140,6 +140,59 @@ DEMO_ROUTING = {
             "policy_allowed": True,
             "cost_usd": 0.004,
         },
+        {
+            "tenant_id": "acme",
+            "workflow_id": "deny-theater",
+            "factors": {
+                "thesis_role": "executor",
+                "agent_role": "support",
+                "data_class": "confidential",
+                "notes": ["confidential_requires_private"],
+            },
+            "tier": "high_reasoning",
+            "provider": "openai",
+            "model_id": "openai/gpt-4o",
+            "reason": "policy_deny",
+            "policy_allowed": False,
+            "policy_deny_code": "confidential_requires_private",
+            "cost_usd": 0.0,
+        },
+        {
+            "tenant_id": "vap",
+            "workflow_id": "deny-theater",
+            "factors": {
+                "thesis_role": "verifier",
+                "agent_role": "critic",
+                "data_class": "internal",
+                "notes": ["verifier_same_provider"],
+            },
+            "tier": "high_reasoning",
+            "provider": "groq",
+            "model_id": "groq/llama",
+            "reason": "policy_deny",
+            "policy_allowed": False,
+            "policy_deny_code": "verifier_same_provider",
+            "cost_usd": 0.0,
+        },
+        {
+            "tenant_id": "acme-eu",
+            "workflow_id": "deny-theater",
+            "factors": {
+                "thesis_role": "executor",
+                "data_class": "restricted",
+                "allowed_regions": ["eu", "private"],
+                "inference_geo": "global",
+                "notes": ["geo_region_not_allowed"],
+            },
+            "tier": "fast",
+            "provider": "openai",
+            "model_id": "openai/gpt-4o-mini",
+            "reason": "policy_deny",
+            "policy_allowed": False,
+            "policy_deny_code": "geo_region_not_allowed",
+            "inference_geo": "global",
+            "cost_usd": 0.0,
+        },
     ],
 }
 
@@ -236,4 +289,108 @@ def cost_per_compliant_outcome_payload(tenant_id: str | None = None) -> dict[str
         "metrics": DEMO_KPI,
         "note": "Live FinOps KPI unreachable — demo sample.",
         "live_error": live.get("error"),
+    }
+
+
+DEFAULT_GATEWAY_BASE = "https://aegis-llm-gateway-api.onrender.com"
+
+DENY_PROBE_SPECS = [
+    {
+        "id": "confidential_cloud",
+        "label": "confidential → openai (expect 403)",
+        "headers": {
+            "X-Tenant-Id": "acme",
+            "X-Data-Class": "confidential",
+            "X-Selected-Provider": "openai",
+            "X-Thesis-Role": "executor",
+        },
+        "model": "openai/gpt-4o",
+        "expect_code": "confidential_requires_private",
+    },
+    {
+        "id": "verifier_same_provider",
+        "label": "verifier == generator provider (expect 403)",
+        "headers": {
+            "X-Tenant-Id": "vap",
+            "X-Thesis-Role": "verifier",
+            "X-Generator-Provider": "groq",
+            "X-Selected-Provider": "groq",
+        },
+        "model": "groq/llama",
+        "expect_code": "verifier_same_provider",
+    },
+    {
+        "id": "geo_eu_global",
+        "label": "acme-eu allowed eu|private → openai global (expect 403)",
+        "headers": {
+            "X-Tenant-Id": "acme-eu",
+            "X-Data-Class": "restricted",
+            "X-Allowed-Regions": "eu,private",
+            "X-Jurisdiction": "eu",
+            "X-Selected-Provider": "openai",
+            "X-Thesis-Role": "executor",
+        },
+        "model": "openai/gpt-4o-mini",
+        "expect_code": "geo_region_not_allowed",
+    },
+]
+
+
+def _gateway_base_url() -> str:
+    metrics = _url("LLM_GATEWAY_OPS_URL", DEFAULT_GATEWAY_OPS)
+    if metrics.endswith("/v1/ops/metrics"):
+        return metrics[: -len("/v1/ops/metrics")]
+    return (os.getenv("LLM_GATEWAY_URL") or DEFAULT_GATEWAY_BASE).rstrip("/")
+
+
+def deny_probes_payload() -> dict[str, Any]:
+    """One-click ADR-029 (+ thin geo) deny theater against the live LLM gateway."""
+    base = _gateway_base_url()
+    probes: list[dict[str, Any]] = []
+    for spec in DENY_PROBE_SPECS:
+        url = f"{base}/v1/chat/completions"
+        status = None
+        detail: dict[str, Any] | str | None = None
+        try:
+            with httpx.Client(timeout=25.0) as client:
+                resp = client.post(
+                    url,
+                    headers=spec["headers"],
+                    json={
+                        "model": spec["model"],
+                        "messages": [{"role": "user", "content": "deny theater probe"}],
+                    },
+                )
+            status = resp.status_code
+            try:
+                body = resp.json()
+            except Exception:  # noqa: BLE001
+                body = {"raw": resp.text[:400]}
+            detail = body.get("detail") if isinstance(body, dict) else body
+        except Exception as exc:  # noqa: BLE001
+            detail = {"error": str(exc)}
+        code = None
+        if isinstance(detail, dict):
+            code = detail.get("code")
+        expect = spec["expect_code"]
+        probes.append(
+            {
+                "id": spec["id"],
+                "label": spec["label"],
+                "http_status": status,
+                "deny_code": code,
+                "expect_code": expect,
+                "passed": status == 403 and code == expect,
+                "detail": detail,
+            }
+        )
+    return {
+        "plane": "aegis-llm-gateway",
+        "gateway_base": base,
+        "honesty": (
+            "Apps select; gateway enforces confidential→private, verifier≠generator, "
+            "and thin geo (X-Allowed-Regions) when sent. Stub default still applies."
+        ),
+        "probes": probes,
+        "passed": all(p.get("passed") for p in probes),
     }

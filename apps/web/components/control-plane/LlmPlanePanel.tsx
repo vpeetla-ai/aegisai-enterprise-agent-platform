@@ -67,6 +67,19 @@ export function LlmPlanePanel({ onOpenOnboard, onOpenGateway }: LlmPlanePanelPro
   const [cache, setCache] = useState<PlaneFetch | null>(null);
   const [routing, setRouting] = useState<(PlaneFetch & { catalog?: Array<Record<string, string>>; honesty?: string }) | null>(null);
   const [loading, setLoading] = useState(false);
+  const [denyLoading, setDenyLoading] = useState(false);
+  const [denyResult, setDenyResult] = useState<{
+    passed?: boolean;
+    honesty?: string;
+    probes?: Array<{
+      id: string;
+      label: string;
+      http_status?: number;
+      deny_code?: string;
+      expect_code?: string;
+      passed?: boolean;
+    }>;
+  } | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -81,6 +94,24 @@ export function LlmPlanePanel({ onOpenOnboard, onOpenGateway }: LlmPlanePanelPro
     setCache(ca.payload);
     setRouting(rt.payload);
     setLoading(false);
+  }, []);
+
+  const runDenyProbes = useCallback(async () => {
+    setDenyLoading(true);
+    const { payload } = await requestJson<{
+      passed?: boolean;
+      honesty?: string;
+      probes?: Array<{
+        id: string;
+        label: string;
+        http_status?: number;
+        deny_code?: string;
+        expect_code?: string;
+        passed?: boolean;
+      }>;
+    }>("/api/llm-plane/deny-probes", { method: "POST" });
+    setDenyResult(payload);
+    setDenyLoading(false);
   }, []);
 
   useEffect(() => {
@@ -331,6 +362,31 @@ export function LlmPlanePanel({ onOpenOnboard, onOpenGateway }: LlmPlanePanelPro
               </tbody>
             </table>
           </div>
+          <h4>Deny theater (ADR-029 + thin geo)</h4>
+          <p className="aegis-muted-line">
+            One click hits the live LLM gateway with three expected 403s: confidential→cloud,
+            verifier==generator provider, and EU allowed-regions vs global OpenAI.
+          </p>
+          <button
+            type="button"
+            className="aegis-btn-primary"
+            onClick={() => void runDenyProbes()}
+            disabled={denyLoading}
+          >
+            {denyLoading ? "Probing…" : "Run deny probes"}
+          </button>
+          {denyResult ? (
+            <ul className="aegis-plain-list" style={{ marginTop: 12 }}>
+              {(denyResult.probes || []).map((p) => (
+                <li key={p.id}>
+                  <strong>{p.passed ? "PASS" : "FAIL"}</strong> · {p.label} · HTTP{" "}
+                  {String(p.http_status ?? "—")} · code{" "}
+                  <code>{String(p.deny_code ?? "—")}</code>
+                </li>
+              ))}
+              <li className="aegis-muted-line">{denyResult.honesty}</li>
+            </ul>
+          ) : null}
           <h4>Recent routing decisions</h4>
           <ul className="aegis-plain-list">
             {(((routing?.metrics as { decisions?: Array<Record<string, unknown>> } | undefined)?.decisions) || []).map(
@@ -349,7 +405,9 @@ export function LlmPlanePanel({ onOpenOnboard, onOpenGateway }: LlmPlanePanelPro
                     · {String(factors.agent_role || factors.thesis_role || "—")} →{" "}
                     <code>{String(d.tier)}</code> · {String(d.provider)}/{String(d.model_id)} · $
                     {Number(d.cost_usd || 0).toFixed(4)}
-                    {d.policy_allowed === false ? " · DENIED" : ""}
+                    {d.policy_allowed === false
+                      ? ` · DENIED${d.policy_deny_code ? ` (${String(d.policy_deny_code)})` : ""}`
+                      : ""}
                   </li>
                 );
               }
