@@ -1,6 +1,6 @@
 # AegisAI — Product & Deployment Quick Start
 
-> **Architecture (north star):** [`platform/architecture/ARCHITECTURE.md`](../platform/architecture/ARCHITECTURE.md)  
+> **Architecture (north star):** [`platform/architecture/architecture.md`](../platform/architecture/architecture.md)  
 > **Deployment & all API keys:** [`platform/architecture/DEPLOYMENT-AND-SECRETS.md`](../platform/architecture/DEPLOYMENT-AND-SECRETS.md)
 
 Enterprise **Agent Governance Control Plane**: gateway-first policy enforcement, HITL approvals, signed audit, FinOps, and governed multi-agent orchestration.
@@ -60,4 +60,4 @@ make verify
 - **DB:** Supabase Postgres
 - **Cron:** Content Mon/Thu 07:00 UTC · Stock weekdays 11:00 UTC (6AM EST)
 
-See [`platform/architecture/ARCHITECTURE.md`](../platform/architecture/ARCHITECTURE.md) for env vars, gateway flow, and orchestrator details.
+See [`platform/architecture/architecture.md`](../platform/architecture/architecture.md) for env vars, gateway flow, and orchestrator details.

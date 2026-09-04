@@ -90,7 +90,7 @@ Org canonical pattern: [TRACE_LINKED_OBSERVABILITY](https://github.com/vpeetla-a
 ## Reading order for architects
 
 1. [VAP Principal Design Doc](https://github.com/vpeetla-ai/venkat-ai-platform/blob/main/docs/PRINCIPAL_AI_ARCHITECT_DESIGN_DOCUMENT.md) — orchestration tradeoffs
-2. [AegisAI North Star Architecture](https://github.com/vpeetla-ai/aegisai-enterprise-agent-platform/blob/main/platform/architecture/ARCHITECTURE.md) — governance contract
+2. [AegisAI North Star Architecture](https://github.com/vpeetla-ai/aegisai-enterprise-agent-platform/blob/main/platform/architecture/architecture.md) — governance contract
 3. [Article: From Multi-Agent OS to Agent Governance](https://github.com/vpeetla-ai/ai-content-factory/blob/main/docs/content/from-multi-agent-os-to-agent-governance-substack.md)
 
 ---

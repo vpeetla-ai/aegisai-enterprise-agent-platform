@@ -3,6 +3,14 @@
 > **Canonical reference** for product architecture, agent governance, orchestrators, gateway, deployment, and integrations.  
 > **Deployment & API keys:** [`DEPLOYMENT-AND-SECRETS.md`](DEPLOYMENT-AND-SECRETS.md) · **Quick start:** [`docs/PRODUCT.md`](../docs/PRODUCT.md) · Business rules: [`business-rules.md`](business-rules.md)
 
+> **This doc predates several shipped features** (last full pass: 2026-06-28; the codebase has since
+> shipped ADR-0003 through ADR-0008 plus the Acme embed surface — SSO/SCIM, webhooks/connectors,
+> tenant health). For the current honest capability list, see the root
+> [`README.md` Implementation status](../../README.md#implementation-status-honest) table and the
+> [`adr/`](../../adr/) directory — this doc's narrative sections (Mission, Diagram, Layered
+> Architecture, Gateway flow, Orchestrators, Onboarding) are still accurate; §9 (env vars) and
+> §11 (API reference) below have been refreshed to match; §6 (registry storage) has been corrected.
+
 ---
 
 ## 1. Mission
@@ -101,7 +109,7 @@ Notifications: Slack webhooks + Telegram bot for pipeline outputs
 | `github.create_pull_request` | `agent-review-deploy` | GitHub API | ✅ `approval_required` |
 | `github.push_files` | `agent-fe-builder` | GitHub API | ✅ `approval_required` |
 
-Policy (`aegisai.rego`) and the builtin gateway simulator **force `approval_required`** for `deploy_*` action types. OPA is optional when `OPA_URL` is set.
+Policy (`aegisai.rego`) and the builtin gateway simulator **force `approval_required`** for `deploy_*` action types. OPA is optional when `OPA_URL` is set — but under `PRODUCTION_STRICT=true`, irreversible / customer-impact / high-risk tools **hard-block** (`policy_unavailable`) rather than silently fall back to the builtin simulator when OPA or the policy pack is unreachable. See [ADR-0007](../../adr/0007-fail-closed-policy-plane.md).
 
 ### Gateway coverage (honest matrix)
 
@@ -159,7 +167,9 @@ Register → Shadow → Pilot → Approved → (Restricted | Revoked | Deprecate
 - `PATCH /api/agent-registry/lifecycle/{agent_id}/status` — promote/restrict/revoke
 - `POST /api/platform/onboard-agent` — readiness checklist
 
-**Registry storage:** in-memory today; gateway enforces lifecycle status, tool allowlists, shadow/restricted → HITL. Postgres `agent_registry` table migration planned.
+**Registry storage:** SQLite by default (dev); Postgres via `AEGISAI_DB_BACKEND=postgres` (see
+`infrastructure/persistence/factory.py`) — the migration this doc once called "planned" has shipped.
+Gateway enforces lifecycle status, tool allowlists, shadow/restricted → HITL regardless of backend.
 
 ### External orchestrator integration (VAP)
 
@@ -281,7 +291,16 @@ Design system: `apps/web/app/aegis-ui.css`
 | Agent Cloud | `GET /api/agent-cloud/{posture,monitor,govern}` |
 | Dashboard | `GET /api/dashboard/summary` |
 | Observability | `GET /api/observability/status` |
+| HITL | `GET /api/hitl/queue` · `POST /api/hitl/slack/approval-task` · `GET /api/hitl/slack/posture` |
+| Execution tokens | `POST /api/execution-tokens/revoke` ([ADR — passport](../../README.md#implementation-status-honest)) |
+| MCP discovery gate | `POST /api/mcp/discover` ([ADR-0008](../../adr/0008-mcp-discovery-metadata-gate.md)) |
+| Evidence packs | `GET /api/evidence-packs/{tenant}/{case}` |
+| FinOps | `GET /api/finops/kpi/cost-per-compliant-outcome` ([ADR-0004](../../adr/0004-real-finops-metering-website-build.md)) |
+| LLM Plane (observe-only) | `GET /api/llm-plane/gateway-metrics` |
 | Health | `GET /health` |
+
+MCP tool exposure to external clients (Claude Code/Desktop, Cursor) is a separate surface —
+see [ADR-0005](../../adr/0005-mcp-tool-exposure.md) and `services/api/src/aegisai/interfaces/mcp/server.py`.
 
 ---
 
@@ -299,10 +318,16 @@ See **[docs/ECOSYSTEM.md](../../docs/ECOSYSTEM.md)** for how AegisAI pairs with:
 
 ## 13. Evolution Roadmap
 
-1. **Now:** LangGraph website pipeline, gateway on deploy tools, Slack/Telegram delivery, in-memory registry
-2. **Next:** Postgres-backed registry, gateway intercept for Content/Stock tool calls, `github.push_files` through gateway, VAP SDK wiring
-3. **Later:** Swap Gemini → enterprise LLM; MCP servers; multi-tenant onboarding
+1. **Shipped since the June pass:** Postgres-backed registry (`AEGISAI_DB_BACKEND=postgres`),
+   fail-closed OPA under `PRODUCTION_STRICT` (ADR-0007), passport + execution-token revoke, MCP
+   discovery trust gate (ADR-0008), MCP tool exposure to external clients (ADR-0005), real FinOps
+   metering (ADR-0004), a real AWS Terraform deploy path (ADR-0006), and the Acme embed surface
+   (SSO/SCIM, webhooks/connectors, tenant health).
+2. **Next:** gateway intercept for Content/Stock tool calls, `github.push_files` through gateway.
+3. **Later:** Swap Gemini → enterprise LLM; multi-tenant onboarding.
 
 ---
 
-*Last updated: 2026-06-28 — honest gateway matrix, ecosystem map, registry status.*
+*Narrative sections last fully rewritten: 2026-06-28 — honest gateway matrix, ecosystem map,
+registry status. §6/§9/§11/§13 refreshed 2026-09-03 against current code and `adr/0003`–`0008`;
+see the staleness note at the top of this file.*
