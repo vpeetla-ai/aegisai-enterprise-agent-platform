@@ -23,7 +23,7 @@ git clone https://github.com/vpeetla-ai/vpeetla-ai-skills.git
 
 **Job of the system:** sit in front of live agents and decide whether a tool call may execute — identity, policy, HITL, signed audit, FinOps — then let the graph keep orchestrating. Not another agent builder.
 
-This repo is the **pattern**. It is not Lucid's production binary. At Lucid I required gateway / HITL / audit for agent side effects; you can inspect that control-plane shape here.
+This is personal work — a public reference you can inspect. Gateway / HITL / audit sit in front of agent side effects.
 
 > Agents propose. The **AI Gateway** authorizes. Side effects don't fire on hope.
 
